@@ -15,10 +15,26 @@ export default function AnalyticsPage() {
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
+  const totalAlerts = outOfStock + lowStock;
   const outOfStockRate =
     totalProducts > 0 ? Math.round((outOfStock / totalProducts) * 100) : 0;
   const lowStockRate =
     totalProducts > 0 ? Math.round((lowStock / totalProducts) * 100) : 0;
+  const alertRate =
+    totalProducts > 0 ? Math.round((totalAlerts / totalProducts) * 100) : 0;
+  const parsedThresholdInput = Number(thresholdInput.trim());
+  const isThresholdInputValid =
+    Number.isInteger(parsedThresholdInput) && parsedThresholdInput > 0;
+  const canApplyThreshold =
+    isThresholdInputValid && parsedThresholdInput !== appliedThreshold;
+
+  let inventoryHealthLabel = "Ổn định";
+  if (alertRate >= 30) {
+    inventoryHealthLabel = "Cần chú ý";
+  }
+  if (alertRate >= 50) {
+    inventoryHealthLabel = "Rủi ro cao";
+  }
 
   async function fetchInventoryStats() {
     setLoading(true);
@@ -64,7 +80,7 @@ export default function AnalyticsPage() {
   }, [appliedThreshold, thresholdReady]);
 
   function applyThreshold() {
-    const parsed = Number(thresholdInput);
+    const parsed = Number(thresholdInput.trim());
     if (!Number.isFinite(parsed) || parsed <= 0) {
       setError("Ngưỡng sắp hết phải là số lớn hơn 0");
       return;
@@ -77,6 +93,17 @@ export default function AnalyticsPage() {
     setAppliedThreshold(Math.floor(parsed));
   }
 
+  function resetThreshold() {
+    const defaultThreshold = 5;
+    setError(null);
+    setThresholdInput(String(defaultThreshold));
+    window.localStorage.setItem(
+      "inventoryLowStockThreshold",
+      String(defaultThreshold),
+    );
+    setAppliedThreshold(defaultThreshold);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -87,6 +114,10 @@ export default function AnalyticsPage() {
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Ngưỡng đang áp dụng: ≤ {appliedThreshold}
+          </p>
+          <p className="text-xs mt-1">
+            Trạng thái kho:{" "}
+            <span className="font-medium">{inventoryHealthLabel}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -115,9 +146,12 @@ export default function AnalyticsPage() {
           <Button
             variant="secondary"
             onClick={applyThreshold}
-            disabled={loading}
+            disabled={loading || !canApplyThreshold}
           >
             Áp dụng
+          </Button>
+          <Button variant="ghost" onClick={resetThreshold} disabled={loading}>
+            Reset
           </Button>
           <Button
             variant="outline"
@@ -140,10 +174,18 @@ export default function AnalyticsPage() {
           <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <div className="rounded-lg border p-4">
             <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
             <p className="text-2xl font-bold mt-1">{totalProducts}</p>
+          </div>
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+            <p className="text-sm text-muted-foreground">
+              Tổng cảnh báo tồn kho
+            </p>
+            <p className="text-2xl font-bold mt-1 text-orange-700">
+              {totalAlerts}
+            </p>
           </div>
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
             <p className="text-sm text-muted-foreground">Hết hàng</p>
@@ -167,6 +209,12 @@ export default function AnalyticsPage() {
             <p className="text-sm text-muted-foreground">Tỷ lệ sắp hết</p>
             <p className="text-2xl font-bold mt-1 text-amber-700">
               {lowStockRate}%
+            </p>
+          </div>
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+            <p className="text-sm text-muted-foreground">Tỷ lệ cảnh báo</p>
+            <p className="text-2xl font-bold mt-1 text-orange-700">
+              {alertRate}%
             </p>
           </div>
         </div>
