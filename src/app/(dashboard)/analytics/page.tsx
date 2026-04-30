@@ -9,8 +9,9 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [thresholdInput, setThresholdInput] = useState("5");
+  const [thresholdInput, setThresholdInput] = useState("");
   const [appliedThreshold, setAppliedThreshold] = useState(5);
+  const [thresholdReady, setThresholdReady] = useState(false);
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
@@ -33,8 +34,34 @@ export default function AnalyticsPage() {
   }
 
   useEffect(() => {
+    const savedThreshold = window.localStorage.getItem(
+      "inventoryLowStockThreshold",
+    );
+    if (!savedThreshold) {
+      setThresholdInput("5");
+      setThresholdReady(true);
+      return;
+    }
+
+    const parsed = Number(savedThreshold);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      setThresholdInput(String(parsed));
+      setAppliedThreshold(parsed);
+      setThresholdReady(true);
+      return;
+    }
+
+    setThresholdInput("5");
+    setThresholdReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!thresholdReady) {
+      return;
+    }
+
     void fetchInventoryStats();
-  }, [appliedThreshold]);
+  }, [appliedThreshold, thresholdReady]);
 
   function applyThreshold() {
     const parsed = Number(thresholdInput);
@@ -43,6 +70,10 @@ export default function AnalyticsPage() {
       return;
     }
     setError(null);
+    window.localStorage.setItem(
+      "inventoryLowStockThreshold",
+      String(Math.floor(parsed)),
+    );
     setAppliedThreshold(Math.floor(parsed));
   }
 
@@ -53,6 +84,9 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Thống kê</h1>
           <p className="text-muted-foreground">
             Tổng quan tồn kho sản phẩm cho quản trị viên.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ngưỡng đang áp dụng: ≤ {appliedThreshold}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -70,6 +104,12 @@ export default function AnalyticsPage() {
             value={thresholdInput}
             onChange={(event) => {
               setThresholdInput(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                applyThreshold();
+              }
             }}
           />
           <Button
