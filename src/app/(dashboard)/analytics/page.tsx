@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { productService, type InventorySummary } from "@/lib/product-service";
 import { Button } from "@/components/ui/button";
 
 export default function AnalyticsPage() {
+  const isFetchingRef = useRef(false);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,13 +19,10 @@ export default function AnalyticsPage() {
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
-  const totalAlerts = outOfStock + lowStock;
-  const outOfStockRate =
-    totalProducts > 0 ? Math.round((outOfStock / totalProducts) * 100) : 0;
-  const lowStockRate =
-    totalProducts > 0 ? Math.round((lowStock / totalProducts) * 100) : 0;
-  const alertRate =
-    totalProducts > 0 ? Math.round((totalAlerts / totalProducts) * 100) : 0;
+  const totalAlerts = summary?.totalAlerts || 0;
+  const outOfStockRate = summary?.outOfStockRate || 0;
+  const lowStockRate = summary?.lowStockRate || 0;
+  const alertRate = summary?.alertRate || 0;
   const parsedThresholdInput = Number(thresholdInput.trim());
   const isThresholdInputValid =
     Number.isInteger(parsedThresholdInput) && parsedThresholdInput > 0;
@@ -40,16 +38,22 @@ export default function AnalyticsPage() {
   }
 
   async function fetchInventoryStats() {
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
     try {
       const data = await productService.getInventorySummary(appliedThreshold);
       setSummary(data);
-      setLastUpdatedAt(new Date().toLocaleString("vi-VN"));
+      setLastUpdatedAt(new Date(data.generatedAt).toLocaleString("vi-VN"));
     } catch {
       setError("Không thể tải dữ liệu thống kê tồn kho");
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }
 
@@ -185,7 +189,7 @@ export default function AnalyticsPage() {
             <span className="font-medium">{inventoryHealthLabel}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label
             htmlFor="low-stock-threshold"
             className="text-sm text-muted-foreground"
@@ -250,6 +254,11 @@ export default function AnalyticsPage() {
           >
             {autoRefreshEnabled ? "Tắt tự làm mới" : "Bật tự làm mới"}
           </Button>
+          <span className="text-xs text-muted-foreground">
+            {autoRefreshEnabled
+              ? `Tự làm mới mỗi ${autoRefreshSeconds}s`
+              : "Tự làm mới đang tắt"}
+          </span>
           <Button
             variant="outline"
             onClick={fetchInventoryStats}

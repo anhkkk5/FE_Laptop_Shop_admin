@@ -61,7 +61,12 @@ export interface InventorySummary {
   totalProducts: number;
   outOfStock: number;
   lowStock: number;
+  totalAlerts: number;
+  outOfStockRate: number;
+  lowStockRate: number;
+  alertRate: number;
   lowStockThreshold: number;
+  generatedAt: string;
 }
 
 export interface CreateProductPayload {
