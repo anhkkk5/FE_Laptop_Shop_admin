@@ -9,7 +9,8 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [threshold, setThreshold] = useState(5);
+  const [thresholdInput, setThresholdInput] = useState("5");
+  const [appliedThreshold, setAppliedThreshold] = useState(5);
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
@@ -22,7 +23,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await productService.getInventorySummary(threshold);
+      const data = await productService.getInventorySummary(appliedThreshold);
       setSummary(data);
     } catch {
       setError("Không thể tải dữ liệu thống kê tồn kho");
@@ -33,7 +34,17 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     void fetchInventoryStats();
-  }, [threshold]);
+  }, [appliedThreshold]);
+
+  function applyThreshold() {
+    const parsed = Number(thresholdInput);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setError("Ngưỡng sắp hết phải là số lớn hơn 0");
+      return;
+    }
+    setError(null);
+    setAppliedThreshold(Math.floor(parsed));
+  }
 
   return (
     <div className="space-y-6">
@@ -56,14 +67,18 @@ export default function AnalyticsPage() {
             type="number"
             min={1}
             className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm"
-            value={threshold}
+            value={thresholdInput}
             onChange={(event) => {
-              const value = Number(event.target.value);
-              if (Number.isFinite(value) && value > 0) {
-                setThreshold(value);
-              }
+              setThresholdInput(event.target.value);
             }}
           />
+          <Button
+            variant="secondary"
+            onClick={applyThreshold}
+            disabled={loading}
+          >
+            Áp dụng
+          </Button>
           <Button
             variant="outline"
             onClick={fetchInventoryStats}
