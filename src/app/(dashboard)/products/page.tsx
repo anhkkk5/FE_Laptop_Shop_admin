@@ -74,6 +74,8 @@ const statusLabels: Record<
   discontinued: { label: "Ngừng bán", variant: "outline" },
 };
 
+const LOW_STOCK_THRESHOLD = 5;
+
 const emptyForm: CreateProductPayload & { id?: number } = {
   name: "",
   slug: "",
@@ -386,7 +388,18 @@ export default function ProductsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      {p.stockQuantity}
+                      <div className="inline-flex flex-col items-center gap-1">
+                        <span className="font-medium">{p.stockQuantity}</span>
+                        {p.stockQuantity <= 0 ? (
+                          <Badge variant="destructive" className="text-[10px]">
+                            Hết hàng
+                          </Badge>
+                        ) : p.stockQuantity <= LOW_STOCK_THRESHOLD ? (
+                          <Badge className="bg-amber-500/10 text-amber-700 text-[10px]">
+                            Sắp hết
+                          </Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={st.variant}>{st.label}</Badge>
