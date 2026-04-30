@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   ChevronLeft,
   Menu,
+  FolderTree,
+  Tag,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -20,8 +22,10 @@ import { Button } from "@/components/ui/button";
 
 const sidebarItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/users", label: "Người dùng", icon: Users },
+  { href: "/categories", label: "Danh mục", icon: FolderTree },
+  { href: "/brands", label: "Thương hiệu", icon: Tag },
   { href: "/products", label: "Sản phẩm", icon: Laptop },
+  { href: "/users", label: "Người dùng", icon: Users },
   { href: "/orders", label: "Đơn hàng", icon: ShoppingCart },
   { href: "/analytics", label: "Thống kê", icon: BarChart3 },
   { href: "/settings", label: "Cài đặt", icon: Settings },
@@ -110,7 +114,9 @@ export default function DashboardLayout({
         <div className="border-t p-3">
           {!collapsed && user && (
             <div className="mb-2 rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-xs font-medium truncate">{user.fullName || user.email}</p>
+              <p className="text-xs font-medium truncate">
+                {user.fullName || user.email}
+              </p>
               <p className="text-xs text-muted-foreground truncate">
                 {user.email}
               </p>
