@@ -95,8 +95,14 @@ export const productService = {
     return res.data.data;
   },
 
-  async getInventorySummary(): Promise<InventorySummary> {
-    const res = await api.get("/admin/products/inventory-summary");
+  async getInventorySummary(
+    lowStockThreshold?: number,
+  ): Promise<InventorySummary> {
+    const params =
+      lowStockThreshold && lowStockThreshold > 0
+        ? { lowStockThreshold }
+        : undefined;
+    const res = await api.get("/admin/products/inventory-summary", { params });
     return res.data.data;
   },
 

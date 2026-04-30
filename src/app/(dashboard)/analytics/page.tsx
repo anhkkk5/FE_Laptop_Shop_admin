@@ -9,6 +9,7 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [threshold, setThreshold] = useState(5);
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
@@ -21,7 +22,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await productService.getInventorySummary();
+      const data = await productService.getInventorySummary(threshold);
       setSummary(data);
     } catch {
       setError("Không thể tải dữ liệu thống kê tồn kho");
@@ -32,24 +33,45 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     void fetchInventoryStats();
-  }, []);
+  }, [threshold]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Thống kê</h1>
           <p className="text-muted-foreground">
             Tổng quan tồn kho sản phẩm cho quản trị viên.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={fetchInventoryStats}
-          disabled={loading}
-        >
-          Làm mới
-        </Button>
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="low-stock-threshold"
+            className="text-sm text-muted-foreground"
+          >
+            Ngưỡng sắp hết
+          </label>
+          <input
+            id="low-stock-threshold"
+            type="number"
+            min={1}
+            className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm"
+            value={threshold}
+            onChange={(event) => {
+              const value = Number(event.target.value);
+              if (Number.isFinite(value) && value > 0) {
+                setThreshold(value);
+              }
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={fetchInventoryStats}
+            disabled={loading}
+          >
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       {error && (
