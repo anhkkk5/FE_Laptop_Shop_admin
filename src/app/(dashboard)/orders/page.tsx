@@ -8,6 +8,7 @@ import {
   type OrderStatus,
   type PaginatedResult,
 } from "@/lib/order-service";
+import { paymentService, type Payment } from "@/lib/payment-service";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,6 +41,12 @@ const statusLabel: Record<OrderStatus, string> = {
   cancelled: "Đã hủy",
 };
 
+const paymentStatusLabel: Record<string, string> = {
+  pending: "Chờ thanh toán",
+  success: "Đã thanh toán",
+  failed: "Thanh toán thất bại",
+};
+
 export default function OrdersPage() {
   const [result, setResult] = useState<PaginatedResult<Order>>({
     data: [],
@@ -48,8 +55,10 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [updatingPayment, setUpdatingPayment] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -71,10 +80,27 @@ export default function OrdersPage() {
   async function openDetail(orderId: number) {
     try {
       const detail = await orderService.getById(orderId);
+      let payment: Payment | null = null;
+      try {
+        payment = await paymentService.getByOrderId(orderId);
+      } catch {
+        payment = null;
+      }
+
       setSelectedOrder(detail);
+      setSelectedPayment(payment);
       setDialogOpen(true);
     } catch {
       setError("Không thể tải chi tiết đơn hàng");
+    }
+  }
+
+  async function refreshPayment(orderId: number) {
+    try {
+      const payment = await paymentService.getByOrderId(orderId);
+      setSelectedPayment(payment);
+    } catch {
+      setSelectedPayment(null);
     }
   }
 
@@ -90,6 +116,28 @@ export default function OrdersPage() {
       setError("Không thể cập nhật trạng thái");
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function simulatePayment(status: "success" | "failed") {
+    if (!selectedOrder) return;
+
+    setUpdatingPayment(true);
+    try {
+      if (status === "success") {
+        await paymentService.simulateSuccess(selectedOrder.id);
+      } else {
+        await paymentService.simulateFailed(selectedOrder.id);
+      }
+
+      await refreshPayment(selectedOrder.id);
+      const freshOrder = await orderService.getById(selectedOrder.id);
+      setSelectedOrder(freshOrder);
+      await fetchOrders();
+    } catch {
+      setError("Không thể cập nhật trạng thái thanh toán");
+    } finally {
+      setUpdatingPayment(false);
     }
   }
 
@@ -237,6 +285,79 @@ export default function OrdersPage() {
                 <p className="font-semibold text-lg">
                   {formatPrice(Number(selectedOrder.total))}
                 </p>
+              </div>
+
+              <div className="rounded-md border p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">Thanh toán</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={updatingPayment}
+                    onClick={() => refreshPayment(selectedOrder.id)}
+                  >
+                    Làm mới
+                  </Button>
+                </div>
+
+                {selectedPayment ? (
+                  <>
+                    <p>
+                      <span className="text-muted-foreground">
+                        Phương thức:
+                      </span>{" "}
+                      <span className="font-medium uppercase">
+                        {selectedPayment.method}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Trạng thái:</span>{" "}
+                      <span className="font-medium">
+                        {paymentStatusLabel[selectedPayment.status] ||
+                          selectedPayment.status}
+                      </span>
+                    </p>
+                    {selectedPayment.transactionCode && (
+                      <p>
+                        <span className="text-muted-foreground">
+                          Mã giao dịch:
+                        </span>{" "}
+                        <span className="font-medium">
+                          {selectedPayment.transactionCode}
+                        </span>
+                      </p>
+                    )}
+                    {selectedPayment.note && (
+                      <p>
+                        <span className="text-muted-foreground">Ghi chú:</span>{" "}
+                        {selectedPayment.note}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Chưa có bản ghi thanh toán.
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={updatingPayment || !selectedPayment}
+                    onClick={() => simulatePayment("success")}
+                  >
+                    Simulate Success
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={updatingPayment || !selectedPayment}
+                    onClick={() => simulatePayment("failed")}
+                  >
+                    Simulate Failed
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
