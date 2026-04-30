@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { productService, type Product } from "@/lib/product-service";
+import { productService, type InventorySummary } from "@/lib/product-service";
 import { Button } from "@/components/ui/button";
 
-const LOW_STOCK_THRESHOLD = 5;
-
 export default function AnalyticsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,8 +14,8 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await productService.getAll({ page: 1, limit: 1000 });
-      setProducts(res.data);
+      const data = await productService.getInventorySummary();
+      setSummary(data);
     } catch {
       setError("Không thể tải dữ liệu thống kê tồn kho");
     } finally {
@@ -28,16 +26,6 @@ export default function AnalyticsPage() {
   useEffect(() => {
     void fetchInventoryStats();
   }, []);
-
-  const stats = useMemo(() => {
-    const total = products.length;
-    const outOfStock = products.filter((p) => p.stockQuantity <= 0).length;
-    const lowStock = products.filter(
-      (p) => p.stockQuantity > 0 && p.stockQuantity <= LOW_STOCK_THRESHOLD,
-    ).length;
-
-    return { total, outOfStock, lowStock };
-  }, [products]);
 
   return (
     <div className="space-y-6">
@@ -71,18 +59,22 @@ export default function AnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border p-4">
             <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
-            <p className="text-2xl font-bold mt-1">{stats.total}</p>
+            <p className="text-2xl font-bold mt-1">
+              {summary?.totalProducts || 0}
+            </p>
           </div>
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
             <p className="text-sm text-muted-foreground">Hết hàng</p>
             <p className="text-2xl font-bold mt-1 text-destructive">
-              {stats.outOfStock}
+              {summary?.outOfStock || 0}
             </p>
           </div>
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <p className="text-sm text-muted-foreground">Sắp hết (≤ 5)</p>
+            <p className="text-sm text-muted-foreground">
+              Sắp hết (≤ {summary?.lowStockThreshold || 5})
+            </p>
             <p className="text-2xl font-bold mt-1 text-amber-700">
-              {stats.lowStock}
+              {summary?.lowStock || 0}
             </p>
           </div>
         </div>

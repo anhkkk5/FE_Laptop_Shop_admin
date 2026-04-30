@@ -57,6 +57,13 @@ export interface PaginatedResult<T> {
   };
 }
 
+export interface InventorySummary {
+  totalProducts: number;
+  outOfStock: number;
+  lowStock: number;
+  lowStockThreshold: number;
+}
+
 export interface CreateProductPayload {
   name: string;
   slug: string;
@@ -78,15 +85,18 @@ export interface CreateProductPayload {
 export type UpdateProductPayload = Partial<CreateProductPayload>;
 
 export const productService = {
-  async getAll(
-    params?: ProductQueryParams,
-  ): Promise<PaginatedResult<Product>> {
+  async getAll(params?: ProductQueryParams): Promise<PaginatedResult<Product>> {
     const res = await api.get("/admin/products", { params });
     return res.data.data;
   },
 
   async getById(id: number): Promise<Product> {
     const res = await api.get(`/admin/products/${id}`);
+    return res.data.data;
+  },
+
+  async getInventorySummary(): Promise<InventorySummary> {
+    const res = await api.get("/admin/products/inventory-summary");
     return res.data.data;
   },
 
