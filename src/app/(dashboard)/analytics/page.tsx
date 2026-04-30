@@ -9,9 +9,12 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [thresholdInput, setThresholdInput] = useState("");
   const [appliedThreshold, setAppliedThreshold] = useState(5);
   const [thresholdReady, setThresholdReady] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [autoRefreshSeconds, setAutoRefreshSeconds] = useState(60);
   const totalProducts = summary?.totalProducts || 0;
   const outOfStock = summary?.outOfStock || 0;
   const lowStock = summary?.lowStock || 0;
@@ -42,6 +45,7 @@ export default function AnalyticsPage() {
     try {
       const data = await productService.getInventorySummary(appliedThreshold);
       setSummary(data);
+      setLastUpdatedAt(new Date().toLocaleString("vi-VN"));
     } catch {
       setError("Không thể tải dữ liệu thống kê tồn kho");
     } finally {
@@ -53,6 +57,22 @@ export default function AnalyticsPage() {
     const savedThreshold = window.localStorage.getItem(
       "inventoryLowStockThreshold",
     );
+    const savedAutoRefresh = window.localStorage.getItem(
+      "inventoryAutoRefreshEnabled",
+    );
+    const savedAutoRefreshSeconds = window.localStorage.getItem(
+      "inventoryAutoRefreshSeconds",
+    );
+
+    if (savedAutoRefresh === "true") {
+      setAutoRefreshEnabled(true);
+    }
+
+    const parsedAutoRefreshSeconds = Number(savedAutoRefreshSeconds);
+    if ([30, 60, 120].includes(parsedAutoRefreshSeconds)) {
+      setAutoRefreshSeconds(parsedAutoRefreshSeconds);
+    }
+
     if (!savedThreshold) {
       setThresholdInput("5");
       setThresholdReady(true);
@@ -79,6 +99,25 @@ export default function AnalyticsPage() {
     void fetchInventoryStats();
   }, [appliedThreshold, thresholdReady]);
 
+  useEffect(() => {
+    if (!thresholdReady || !autoRefreshEnabled) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void fetchInventoryStats();
+    }, autoRefreshSeconds * 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [
+    autoRefreshEnabled,
+    autoRefreshSeconds,
+    thresholdReady,
+    appliedThreshold,
+  ]);
+
   function applyThreshold() {
     const parsed = Number(thresholdInput.trim());
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -104,6 +143,29 @@ export default function AnalyticsPage() {
     setAppliedThreshold(defaultThreshold);
   }
 
+  function setQuickThreshold(value: number) {
+    setThresholdInput(String(value));
+    window.localStorage.setItem("inventoryLowStockThreshold", String(value));
+    setError(null);
+    setAppliedThreshold(value);
+  }
+
+  function toggleAutoRefresh() {
+    const next = !autoRefreshEnabled;
+    setAutoRefreshEnabled(next);
+    window.localStorage.setItem("inventoryAutoRefreshEnabled", String(next));
+  }
+
+  function changeAutoRefreshSeconds(value: string) {
+    const parsed = Number(value);
+    if (![30, 60, 120].includes(parsed)) {
+      return;
+    }
+
+    setAutoRefreshSeconds(parsed);
+    window.localStorage.setItem("inventoryAutoRefreshSeconds", String(parsed));
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -114,6 +176,9 @@ export default function AnalyticsPage() {
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Ngưỡng đang áp dụng: ≤ {appliedThreshold}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cập nhật lần cuối: {lastUpdatedAt || "--"}
           </p>
           <p className="text-xs mt-1">
             Trạng thái kho:{" "}
@@ -152,6 +217,38 @@ export default function AnalyticsPage() {
           </Button>
           <Button variant="ghost" onClick={resetThreshold} disabled={loading}>
             Reset
+          </Button>
+          <div className="flex items-center gap-1">
+            {[3, 5, 10].map((value) => (
+              <Button
+                key={value}
+                variant={appliedThreshold === value ? "default" : "outline"}
+                onClick={() => setQuickThreshold(value)}
+                disabled={loading}
+                className="h-8 px-2 text-xs"
+              >
+                ≤ {value}
+              </Button>
+            ))}
+          </div>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            value={autoRefreshSeconds}
+            onChange={(event) => {
+              changeAutoRefreshSeconds(event.target.value);
+            }}
+            disabled={loading}
+          >
+            <option value={30}>30s</option>
+            <option value={60}>60s</option>
+            <option value={120}>120s</option>
+          </select>
+          <Button
+            variant="outline"
+            onClick={toggleAutoRefresh}
+            disabled={loading}
+          >
+            {autoRefreshEnabled ? "Tắt tự làm mới" : "Bật tự làm mới"}
           </Button>
           <Button
             variant="outline"
