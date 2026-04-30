@@ -112,6 +112,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stockFilter, setStockFilter] = useState<"all" | "out" | "low">("all");
 
   const fetchProducts = useCallback(async (q: ProductQueryParams) => {
     setLoading(true);
@@ -213,6 +214,13 @@ export default function ProductsPage() {
   }
 
   const { data: products, meta } = result;
+  const filteredProducts = products.filter((p) => {
+    if (stockFilter === "out") return p.stockQuantity <= 0;
+    if (stockFilter === "low") {
+      return p.stockQuantity > 0 && p.stockQuantity <= LOW_STOCK_THRESHOLD;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -301,6 +309,17 @@ export default function ProductsPage() {
           <option value="out_of_stock">Hết hàng</option>
           <option value="discontinued">Ngừng bán</option>
         </select>
+        <select
+          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          value={stockFilter}
+          onChange={(e) =>
+            setStockFilter(e.target.value as "all" | "out" | "low")
+          }
+        >
+          <option value="all">Tất cả tồn kho</option>
+          <option value="out">Hết hàng</option>
+          <option value="low">Sắp hết (≤ {LOW_STOCK_THRESHOLD})</option>
+        </select>
       </div>
 
       {error && !dialogOpen && (
@@ -331,18 +350,18 @@ export default function ProductsPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : products.length === 0 ? (
+            ) : filteredProducts.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={8}
                   className="text-center py-10 text-muted-foreground"
                 >
                   <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                  Chưa có sản phẩm nào
+                  Không có sản phẩm phù hợp bộ lọc hiện tại
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((p) => {
+              filteredProducts.map((p) => {
                 const st = statusLabels[p.status] || statusLabels.draft;
                 return (
                   <TableRow key={p.id}>
