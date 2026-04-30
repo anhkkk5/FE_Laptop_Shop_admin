@@ -9,6 +9,13 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const totalProducts = summary?.totalProducts || 0;
+  const outOfStock = summary?.outOfStock || 0;
+  const lowStock = summary?.lowStock || 0;
+  const outOfStockRate =
+    totalProducts > 0 ? Math.round((outOfStock / totalProducts) * 100) : 0;
+  const lowStockRate =
+    totalProducts > 0 ? Math.round((lowStock / totalProducts) * 100) : 0;
 
   async function fetchInventoryStats() {
     setLoading(true);
@@ -56,25 +63,33 @@ export default function AnalyticsPage() {
           <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border p-4">
             <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
-            <p className="text-2xl font-bold mt-1">
-              {summary?.totalProducts || 0}
-            </p>
+            <p className="text-2xl font-bold mt-1">{totalProducts}</p>
           </div>
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
             <p className="text-sm text-muted-foreground">Hết hàng</p>
             <p className="text-2xl font-bold mt-1 text-destructive">
-              {summary?.outOfStock || 0}
+              {outOfStock}
             </p>
           </div>
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
             <p className="text-sm text-muted-foreground">
               Sắp hết (≤ {summary?.lowStockThreshold || 5})
             </p>
+            <p className="text-2xl font-bold mt-1 text-amber-700">{lowStock}</p>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="text-sm text-muted-foreground">Tỷ lệ hết hàng</p>
+            <p className="text-2xl font-bold mt-1 text-destructive">
+              {outOfStockRate}%
+            </p>
+          </div>
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <p className="text-sm text-muted-foreground">Tỷ lệ sắp hết</p>
             <p className="text-2xl font-bold mt-1 text-amber-700">
-              {summary?.lowStock || 0}
+              {lowStockRate}%
             </p>
           </div>
         </div>
