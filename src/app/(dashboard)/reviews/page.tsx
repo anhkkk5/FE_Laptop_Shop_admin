@@ -66,6 +66,7 @@ function ReviewsAdminPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [ratingFilter, setRatingFilter] = useState<number | "all">(
@@ -89,6 +90,86 @@ function ReviewsAdminPageContent() {
     setRatingFilter("all");
     setVerifiedFilter("all");
     setPage(1);
+  }
+
+  function escapeCsv(value: string | number | boolean | null): string {
+    if (value === null) {
+      return "";
+    }
+    const text = String(value);
+    if (text.includes(",") || text.includes('"') || text.includes("\n")) {
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+    return text;
+  }
+
+  async function handleExportCsv() {
+    setExportingCsv(true);
+    setError(null);
+    try {
+      const allReviews: Review[] = [];
+      let exportPage = 1;
+      let exportTotalPages = 1;
+
+      while (exportPage <= exportTotalPages) {
+        const result = await reviewService.getAll({
+          page: exportPage,
+          limit: 100,
+          rating: ratingFilter === "all" ? undefined : ratingFilter,
+          isVerified:
+            verifiedFilter === "all"
+              ? undefined
+              : verifiedFilter === "verified"
+                ? true
+                : false,
+          search: debouncedSearch.trim() || undefined,
+        });
+        allReviews.push(...result.data);
+        exportTotalPages = result.meta.totalPages || 1;
+        exportPage += 1;
+      }
+
+      const headers = [
+        "ReviewId",
+        "ProductId",
+        "UserId",
+        "Rating",
+        "IsVerified",
+        "Comment",
+        "CreatedAt",
+      ];
+
+      const rows = allReviews.map((review) =>
+        [
+          review.id,
+          review.productId,
+          review.userId,
+          review.rating,
+          review.isVerified,
+          review.comment,
+          review.createdAt,
+        ]
+          .map((cell) => escapeCsv(cell))
+          .join(","),
+      );
+
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `reviews-export-${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Không thể export CSV đánh giá");
+    } finally {
+      setExportingCsv(false);
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -246,7 +327,15 @@ function ReviewsAdminPageContent() {
           <option value="verified">Đã xác thực</option>
           <option value="unverified">Chưa xác thực</option>
         </select>
-        <div className="flex items-center justify-end md:col-span-4">
+        <div className="flex items-center justify-end gap-2 md:col-span-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleExportCsv()}
+            disabled={exportingCsv || total === 0}
+          >
+            {exportingCsv ? "Đang export..." : "Export CSV"}
+          </Button>
           <Button variant="outline" size="sm" onClick={clearFilters}>
             Clear
           </Button>

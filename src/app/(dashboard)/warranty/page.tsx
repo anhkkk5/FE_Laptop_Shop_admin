@@ -77,6 +77,7 @@ function WarrantyAdminPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [statusFilter, setStatusFilter] = useState<
     WarrantyTicketStatus | "all"
   >(initialStatus);
@@ -98,6 +99,83 @@ function WarrantyAdminPageContent() {
     setSearchInput("");
     setDebouncedSearch("");
     setPage(1);
+  }
+
+  function escapeCsv(value: string | number | null): string {
+    if (value === null) {
+      return "";
+    }
+    const text = String(value);
+    if (text.includes(",") || text.includes('"') || text.includes("\n")) {
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+    return text;
+  }
+
+  async function handleExportCsv() {
+    setExportingCsv(true);
+    setError(null);
+    try {
+      const status = statusFilter === "all" ? undefined : statusFilter;
+      const keyword = debouncedSearch.trim() || undefined;
+
+      const allTickets: WarrantyTicket[] = [];
+      let exportPage = 1;
+      let exportTotalPages = 1;
+
+      while (exportPage <= exportTotalPages) {
+        const result = await warrantyService.getAll({
+          page: exportPage,
+          limit: 100,
+          status,
+          search: keyword,
+        });
+        allTickets.push(...result.data);
+        exportTotalPages = result.meta.totalPages || 1;
+        exportPage += 1;
+      }
+
+      const headers = [
+        "TicketCode",
+        "ProductName",
+        "Status",
+        "Priority",
+        "AssignedTo",
+        "IssueDescription",
+        "CreatedAt",
+      ];
+
+      const rows = allTickets.map((ticket) =>
+        [
+          ticket.ticketCode,
+          ticket.productName,
+          ticket.status,
+          ticket.priority,
+          ticket.assignedTo,
+          ticket.issueDescription,
+          ticket.createdAt,
+        ]
+          .map((cell) => escapeCsv(cell))
+          .join(","),
+      );
+
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `warranty-export-${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Không thể export CSV bảo hành");
+    } finally {
+      setExportingCsv(false);
+    }
   }
 
   const fetchData = useCallback(async () => {
@@ -276,9 +354,19 @@ function WarrantyAdminPageContent() {
           <span className="text-sm text-muted-foreground">
             {total} ticket phù hợp
           </span>
-          <Button variant="outline" size="sm" onClick={clearFilters}>
-            Clear
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleExportCsv()}
+              disabled={exportingCsv || total === 0}
+            >
+              {exportingCsv ? "Đang export..." : "Export CSV"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              Clear
+            </Button>
+          </div>
         </div>
       </div>
 
