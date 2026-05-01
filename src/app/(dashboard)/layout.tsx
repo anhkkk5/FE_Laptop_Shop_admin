@@ -15,6 +15,8 @@ import {
   Menu,
   FolderTree,
   Tag,
+  Wrench,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -27,6 +29,8 @@ const sidebarItems = [
   { href: "/products", label: "Sản phẩm", icon: Laptop },
   { href: "/users", label: "Người dùng", icon: Users },
   { href: "/orders", label: "Đơn hàng", icon: ShoppingCart },
+  { href: "/warranty", label: "Bảo hành", icon: Wrench },
+  { href: "/reviews", label: "Đánh giá", icon: MessageSquare },
   { href: "/analytics", label: "Thống kê", icon: BarChart3 },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
