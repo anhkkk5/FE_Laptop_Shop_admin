@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
@@ -85,6 +85,20 @@ function WarrantyAdminPageContent() {
   const [page, setPage] = useState(initialPage);
 
   const [techByTicket, setTechByTicket] = useState<Record<number, string>>({});
+  const tableSectionRef = useRef<HTMLDivElement | null>(null);
+  const shouldFocusTableRef = useRef(false);
+
+  function markKeepTableInView() {
+    shouldFocusTableRef.current = true;
+  }
+
+  function clearFilters() {
+    markKeepTableInView();
+    setStatusFilter("all");
+    setSearchInput("");
+    setDebouncedSearch("");
+    setPage(1);
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -127,6 +141,16 @@ function WarrantyAdminPageContent() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter, debouncedSearch]);
+
+  useEffect(() => {
+    if (!loading && shouldFocusTableRef.current) {
+      tableSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      shouldFocusTableRef.current = false;
+    }
+  }, [loading]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -236,9 +260,10 @@ function WarrantyAdminPageContent() {
         <select
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as WarrantyTicketStatus | "all")
-          }
+          onChange={(event) => {
+            markKeepTableInView();
+            setStatusFilter(event.target.value as WarrantyTicketStatus | "all");
+          }}
         >
           <option value="all">Tất cả trạng thái</option>
           {statusOptions.map((status) => (
@@ -247,12 +272,17 @@ function WarrantyAdminPageContent() {
             </option>
           ))}
         </select>
-        <div className="flex items-center text-sm text-muted-foreground">
-          {total} ticket phù hợp
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-muted-foreground">
+            {total} ticket phù hợp
+          </span>
+          <Button variant="outline" size="sm" onClick={clearFilters}>
+            Clear
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border">
+      <div ref={tableSectionRef} className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -347,7 +377,10 @@ function WarrantyAdminPageContent() {
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            onClick={() => {
+              markKeepTableInView();
+              setPage((prev) => Math.max(1, prev - 1));
+            }}
           >
             Trước
           </Button>
@@ -355,7 +388,10 @@ function WarrantyAdminPageContent() {
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            onClick={() => {
+              markKeepTableInView();
+              setPage((prev) => Math.min(totalPages, prev + 1));
+            }}
           >
             Sau
           </Button>

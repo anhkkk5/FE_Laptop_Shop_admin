@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import {
@@ -75,6 +75,21 @@ function ReviewsAdminPageContent() {
     "all" | "verified" | "unverified"
   >(initialVerified);
   const [page, setPage] = useState(initialPage);
+  const tableSectionRef = useRef<HTMLDivElement | null>(null);
+  const shouldFocusTableRef = useRef(false);
+
+  function markKeepTableInView() {
+    shouldFocusTableRef.current = true;
+  }
+
+  function clearFilters() {
+    markKeepTableInView();
+    setSearchInput("");
+    setDebouncedSearch("");
+    setRatingFilter("all");
+    setVerifiedFilter("all");
+    setPage(1);
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -123,6 +138,16 @@ function ReviewsAdminPageContent() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, ratingFilter, verifiedFilter]);
+
+  useEffect(() => {
+    if (!loading && shouldFocusTableRef.current) {
+      tableSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      shouldFocusTableRef.current = false;
+    }
+  }, [loading]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -196,6 +221,7 @@ function ReviewsAdminPageContent() {
           value={ratingFilter}
           onChange={(event) => {
             const value = event.target.value;
+            markKeepTableInView();
             setRatingFilter(value === "all" ? "all" : Number(value));
           }}
         >
@@ -209,16 +235,22 @@ function ReviewsAdminPageContent() {
         <select
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           value={verifiedFilter}
-          onChange={(event) =>
+          onChange={(event) => {
+            markKeepTableInView();
             setVerifiedFilter(
               event.target.value as "all" | "verified" | "unverified",
-            )
-          }
+            );
+          }}
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="verified">Đã xác thực</option>
           <option value="unverified">Chưa xác thực</option>
         </select>
+        <div className="flex items-center justify-end md:col-span-4">
+          <Button variant="outline" size="sm" onClick={clearFilters}>
+            Clear
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -258,7 +290,7 @@ function ReviewsAdminPageContent() {
         </Card>
       </div>
 
-      <div className="rounded-lg border">
+      <div ref={tableSectionRef} className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -326,7 +358,10 @@ function ReviewsAdminPageContent() {
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            onClick={() => {
+              markKeepTableInView();
+              setPage((prev) => Math.max(1, prev - 1));
+            }}
           >
             Trước
           </Button>
@@ -334,7 +369,10 @@ function ReviewsAdminPageContent() {
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            onClick={() => {
+              markKeepTableInView();
+              setPage((prev) => Math.min(totalPages, prev + 1));
+            }}
           >
             Sau
           </Button>
