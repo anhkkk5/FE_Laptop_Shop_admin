@@ -18,6 +18,7 @@ import {
   type PaginatedResult,
   type CreateProductPayload,
 } from "@/lib/product-service";
+import { useAuth } from "@/context/auth-context";
 import { categoryService, type Category } from "@/lib/category-service";
 import { brandService, type Brand } from "@/lib/brand-service";
 
@@ -93,6 +94,8 @@ const emptyForm: CreateProductPayload & { id?: number } = {
 };
 
 export default function ProductsPage() {
+  const { hasRole } = useAuth();
+  const canManageProducts = hasRole("admin");
   const [result, setResult] = useState<PaginatedResult<Product>>({
     data: [],
     meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
@@ -148,6 +151,7 @@ export default function ProductsPage() {
   }
 
   function openCreate() {
+    if (!canManageProducts) return;
     setForm(emptyForm);
     setEditing(false);
     setError(null);
@@ -155,6 +159,7 @@ export default function ProductsPage() {
   }
 
   function openEdit(p: Product) {
+    if (!canManageProducts) return;
     setForm({
       id: p.id,
       name: p.name,
@@ -177,6 +182,7 @@ export default function ProductsPage() {
   }
 
   async function handleSave() {
+    if (!canManageProducts) return;
     setSaving(true);
     setError(null);
     try {
@@ -202,6 +208,7 @@ export default function ProductsPage() {
   }
 
   async function handleDelete() {
+    if (!canManageProducts) return;
     if (!deleting) return;
     try {
       await productService.delete(deleting);
@@ -231,10 +238,12 @@ export default function ProductsPage() {
             Quản lý sản phẩm ({meta.total} sản phẩm)
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Thêm sản phẩm
-        </Button>
+        {canManageProducts && (
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Thêm sản phẩm
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -424,26 +433,32 @@ export default function ProductsPage() {
                       <Badge variant={st.variant}>{st.label}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(p)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => {
-                            setDeleting(p.id);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canManageProducts ? (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(p)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setDeleting(p.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Chỉ xem
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -679,7 +694,13 @@ export default function ProductsPage() {
             </DialogClose>
             <Button
               onClick={handleSave}
-              disabled={saving || !form.name || !form.slug || !form.price}
+              disabled={
+                !canManageProducts ||
+                saving ||
+                !form.name ||
+                !form.slug ||
+                !form.price
+              }
             >
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editing ? "Cập nhật" : "Tạo mới"}
@@ -701,7 +722,11 @@ export default function ProductsPage() {
             <DialogClose asChild>
               <Button variant="outline">Hủy</Button>
             </DialogClose>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button
+              variant="destructive"
+              disabled={!canManageProducts}
+              onClick={handleDelete}
+            >
               Xóa
             </Button>
           </DialogFooter>

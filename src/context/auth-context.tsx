@@ -11,10 +11,13 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { authService, type AdminUser } from "@/lib/auth-service";
 
+const ALLOWED_ROLES = ["admin", "staff", "warehouse", "technician"];
+
 interface AuthContextType {
   user: AdminUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasRole: (...roles: string[]) => boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -34,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const userData = await authService.getMe();
-      if (userData.role !== "admin") {
+      if (!ALLOWED_ROLES.includes(userData.role)) {
         await authService.logout();
         setUser(null);
         return;
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       await authService.login(email, password);
       const userData = await authService.getMe();
-      if (userData.role !== "admin") {
+      if (!ALLOWED_ROLES.includes(userData.role)) {
         await authService.logout();
         throw new Error("Tài khoản không có quyền truy cập trang quản trị");
       }
@@ -81,12 +84,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   }, [router]);
 
+  const hasRole = useCallback(
+    (...roles: string[]) => {
+      if (!user) return false;
+      return roles.includes(user.role);
+    },
+    [user],
+  );
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
         isAuthenticated: !!user,
+        hasRole,
         login,
         logout,
       }}

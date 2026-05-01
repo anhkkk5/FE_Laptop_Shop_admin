@@ -42,6 +42,41 @@ const statusOptions: WarrantyTicketStatus[] = [
   "rejected",
 ];
 
+type WarrantyExportField =
+  | "ticketCode"
+  | "productName"
+  | "status"
+  | "priority"
+  | "assignedTo"
+  | "issueDescription"
+  | "createdAt";
+
+const warrantyExportFieldOptions: Array<{
+  key: WarrantyExportField;
+  label: string;
+  header: string;
+}> = [
+  { key: "ticketCode", label: "Mã ticket", header: "TicketCode" },
+  { key: "productName", label: "Sản phẩm", header: "ProductName" },
+  { key: "status", label: "Trạng thái", header: "Status" },
+  { key: "priority", label: "Ưu tiên", header: "Priority" },
+  { key: "assignedTo", label: "Technician", header: "AssignedTo" },
+  {
+    key: "issueDescription",
+    label: "Mô tả lỗi",
+    header: "IssueDescription",
+  },
+  { key: "createdAt", label: "Ngày tạo", header: "CreatedAt" },
+];
+
+const defaultWarrantyExportFields: WarrantyExportField[] = [
+  "ticketCode",
+  "productName",
+  "status",
+  "priority",
+  "createdAt",
+];
+
 function parsePositiveInt(value: string | null, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -78,6 +113,9 @@ function WarrantyAdminPageContent() {
   const [assigningId, setAssigningId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState<
+    WarrantyExportField[]
+  >(defaultWarrantyExportFields);
   const [statusFilter, setStatusFilter] = useState<
     WarrantyTicketStatus | "all"
   >(initialStatus);
@@ -112,10 +150,42 @@ function WarrantyAdminPageContent() {
     return text;
   }
 
+  function formatDateForCsv(value: string): string {
+    return new Date(value).toLocaleString("vi-VN");
+  }
+
+  function toggleExportField(field: WarrantyExportField) {
+    setSelectedExportFields((prev) => {
+      if (prev.includes(field)) {
+        return prev.filter((item) => item !== field);
+      }
+      return [...prev, field];
+    });
+  }
+
+  function selectAllExportFields() {
+    setSelectedExportFields(
+      warrantyExportFieldOptions.map((field) => field.key),
+    );
+  }
+
+  function resetDefaultExportFields() {
+    setSelectedExportFields(defaultWarrantyExportFields);
+  }
+
+  function clearExportFields() {
+    setSelectedExportFields([]);
+  }
+
   async function handleExportCsv() {
     setExportingCsv(true);
     setError(null);
     try {
+      if (selectedExportFields.length === 0) {
+        setError("Vui lòng chọn ít nhất 1 cột để export");
+        return;
+      }
+
       const status = statusFilter === "all" ? undefined : statusFilter;
       const keyword = debouncedSearch.trim() || undefined;
 
@@ -135,32 +205,41 @@ function WarrantyAdminPageContent() {
         exportPage += 1;
       }
 
-      const headers = [
-        "TicketCode",
-        "ProductName",
-        "Status",
-        "Priority",
-        "AssignedTo",
-        "IssueDescription",
-        "CreatedAt",
-      ];
+      const orderedFields = warrantyExportFieldOptions
+        .map((item) => item.key)
+        .filter((field) => selectedExportFields.includes(field));
 
-      const rows = allTickets.map((ticket) =>
-        [
-          ticket.ticketCode,
-          ticket.productName,
-          ticket.status,
-          ticket.priority,
-          ticket.assignedTo,
-          ticket.issueDescription,
-          ticket.createdAt,
-        ]
-          .map((cell) => escapeCsv(cell))
-          .join(","),
-      );
+      const headers = warrantyExportFieldOptions
+        .filter((item) => orderedFields.includes(item.key))
+        .map((item) => item.header);
+
+      const rows = allTickets.map((ticket) => {
+        const values = orderedFields.map((field) => {
+          switch (field) {
+            case "ticketCode":
+              return ticket.ticketCode;
+            case "productName":
+              return ticket.productName;
+            case "status":
+              return ticket.status;
+            case "priority":
+              return ticket.priority;
+            case "assignedTo":
+              return ticket.assignedTo;
+            case "issueDescription":
+              return ticket.issueDescription;
+            case "createdAt":
+              return formatDateForCsv(ticket.createdAt);
+            default:
+              return "";
+          }
+        });
+
+        return values.map((cell) => escapeCsv(cell)).join(",");
+      });
 
       const csvContent = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csvContent], {
+      const blob = new Blob(["\uFEFF", csvContent], {
         type: "text/csv;charset=utf-8;",
       });
       const url = URL.createObjectURL(blob);
@@ -367,6 +446,42 @@ function WarrantyAdminPageContent() {
               Clear
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Cột export CSV ({selectedExportFields.length}/
+            {warrantyExportFieldOptions.length})
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={selectAllExportFields}>
+              Chọn tất cả
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetDefaultExportFields}
+            >
+              Mặc định
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearExportFields}>
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {warrantyExportFieldOptions.map((field) => (
+            <label key={field.key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={selectedExportFields.includes(field.key)}
+                onChange={() => toggleExportField(field.key)}
+              />
+              {field.label}
+            </label>
+          ))}
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import {
   type PaginatedResult,
 } from "@/lib/order-service";
 import { paymentService, type Payment } from "@/lib/payment-service";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +49,8 @@ const paymentStatusLabel: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  const { hasRole } = useAuth();
+  const canAccessOrders = hasRole("admin", "staff");
   const [result, setResult] = useState<PaginatedResult<Order>>({
     data: [],
     meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
@@ -61,6 +64,15 @@ export default function OrdersPage() {
   const [updatingPayment, setUpdatingPayment] = useState(false);
 
   const fetchOrders = useCallback(async () => {
+    if (!canAccessOrders) {
+      setLoading(false);
+      setResult({
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      });
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -71,11 +83,22 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canAccessOrders]);
 
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  if (!canAccessOrders) {
+    return (
+      <div className="rounded-lg border p-6">
+        <h1 className="text-xl font-semibold">Quản lý đơn hàng</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Bạn không có quyền truy cập module này.
+        </p>
+      </div>
+    );
+  }
 
   async function openDetail(orderId: number) {
     try {

@@ -17,22 +17,88 @@ import {
   Tag,
   Wrench,
   MessageSquare,
+  Bell,
 } from "lucide-react";
-import { useState } from "react";
+import { type ComponentType, useMemo, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 
-const sidebarItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/categories", label: "Danh mục", icon: FolderTree },
-  { href: "/brands", label: "Thương hiệu", icon: Tag },
-  { href: "/products", label: "Sản phẩm", icon: Laptop },
-  { href: "/users", label: "Người dùng", icon: Users },
-  { href: "/orders", label: "Đơn hàng", icon: ShoppingCart },
-  { href: "/warranty", label: "Bảo hành", icon: Wrench },
-  { href: "/reviews", label: "Đánh giá", icon: MessageSquare },
-  { href: "/analytics", label: "Thống kê", icon: BarChart3 },
-  { href: "/settings", label: "Cài đặt", icon: Settings },
+type AdminRole = "admin" | "staff" | "warehouse" | "technician";
+
+type SidebarItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  roles: AdminRole[];
+};
+
+const sidebarItems: SidebarItem[] = [
+  {
+    href: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "staff", "warehouse", "technician"],
+  },
+  {
+    href: "/categories",
+    label: "Danh mục",
+    icon: FolderTree,
+    roles: ["admin"],
+  },
+  {
+    href: "/brands",
+    label: "Thương hiệu",
+    icon: Tag,
+    roles: ["admin"],
+  },
+  {
+    href: "/products",
+    label: "Sản phẩm",
+    icon: Laptop,
+    roles: ["admin", "warehouse"],
+  },
+  {
+    href: "/users",
+    label: "Người dùng",
+    icon: Users,
+    roles: ["admin"],
+  },
+  {
+    href: "/orders",
+    label: "Đơn hàng",
+    icon: ShoppingCart,
+    roles: ["admin", "staff"],
+  },
+  {
+    href: "/warranty",
+    label: "Bảo hành",
+    icon: Wrench,
+    roles: ["admin", "technician"],
+  },
+  {
+    href: "/reviews",
+    label: "Đánh giá",
+    icon: MessageSquare,
+    roles: ["admin"],
+  },
+  {
+    href: "/notifications",
+    label: "Thông báo",
+    icon: Bell,
+    roles: ["admin", "staff"],
+  },
+  {
+    href: "/analytics",
+    label: "Thống kê",
+    icon: BarChart3,
+    roles: ["admin"],
+  },
+  {
+    href: "/settings",
+    label: "Cài đặt",
+    icon: Settings,
+    roles: ["admin"],
+  },
 ];
 
 export default function DashboardLayout({
@@ -44,6 +110,18 @@ export default function DashboardLayout({
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const visibleItems = useMemo(() => {
+    if (!user) return [];
+    return sidebarItems.filter((item) =>
+      item.roles.includes(user.role as AdminRole),
+    );
+  }, [user]);
+  const currentLabel =
+    visibleItems.find(
+      (item) =>
+        pathname === item.href ||
+        (item.href !== "/" && pathname.startsWith(item.href)),
+    )?.label || "Dashboard";
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
@@ -91,7 +169,7 @@ export default function DashboardLayout({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {sidebarItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href));
@@ -149,11 +227,7 @@ export default function DashboardLayout({
             <Menu className="h-5 w-5" />
           </button>
           <h2 className="text-lg font-semibold tracking-tight">
-            {sidebarItems.find(
-              (item) =>
-                pathname === item.href ||
-                (item.href !== "/" && pathname.startsWith(item.href)),
-            )?.label || "Dashboard"}
+            {currentLabel}
           </h2>
         </header>
 

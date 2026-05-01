@@ -20,6 +20,38 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type ReviewExportField =
+  | "id"
+  | "productId"
+  | "userId"
+  | "rating"
+  | "isVerified"
+  | "comment"
+  | "createdAt";
+
+const reviewExportFieldOptions: Array<{
+  key: ReviewExportField;
+  label: string;
+  header: string;
+}> = [
+  { key: "id", label: "ID", header: "ReviewId" },
+  { key: "productId", label: "Product ID", header: "ProductId" },
+  { key: "userId", label: "User ID", header: "UserId" },
+  { key: "rating", label: "Số sao", header: "Rating" },
+  { key: "isVerified", label: "Xác thực", header: "IsVerified" },
+  { key: "comment", label: "Bình luận", header: "Comment" },
+  { key: "createdAt", label: "Ngày tạo", header: "CreatedAt" },
+];
+
+const defaultReviewExportFields: ReviewExportField[] = [
+  "id",
+  "productId",
+  "userId",
+  "rating",
+  "isVerified",
+  "createdAt",
+];
+
 function parsePositiveInt(value: string | null, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -67,6 +99,9 @@ function ReviewsAdminPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState<
+    ReviewExportField[]
+  >(defaultReviewExportFields);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [ratingFilter, setRatingFilter] = useState<number | "all">(
@@ -103,10 +138,40 @@ function ReviewsAdminPageContent() {
     return text;
   }
 
+  function formatDateForCsv(value: string): string {
+    return new Date(value).toLocaleString("vi-VN");
+  }
+
+  function toggleExportField(field: ReviewExportField) {
+    setSelectedExportFields((prev) => {
+      if (prev.includes(field)) {
+        return prev.filter((item) => item !== field);
+      }
+      return [...prev, field];
+    });
+  }
+
+  function selectAllExportFields() {
+    setSelectedExportFields(reviewExportFieldOptions.map((field) => field.key));
+  }
+
+  function resetDefaultExportFields() {
+    setSelectedExportFields(defaultReviewExportFields);
+  }
+
+  function clearExportFields() {
+    setSelectedExportFields([]);
+  }
+
   async function handleExportCsv() {
     setExportingCsv(true);
     setError(null);
     try {
+      if (selectedExportFields.length === 0) {
+        setError("Vui lòng chọn ít nhất 1 cột để export");
+        return;
+      }
+
       const allReviews: Review[] = [];
       let exportPage = 1;
       let exportTotalPages = 1;
@@ -129,32 +194,41 @@ function ReviewsAdminPageContent() {
         exportPage += 1;
       }
 
-      const headers = [
-        "ReviewId",
-        "ProductId",
-        "UserId",
-        "Rating",
-        "IsVerified",
-        "Comment",
-        "CreatedAt",
-      ];
+      const orderedFields = reviewExportFieldOptions
+        .map((item) => item.key)
+        .filter((field) => selectedExportFields.includes(field));
 
-      const rows = allReviews.map((review) =>
-        [
-          review.id,
-          review.productId,
-          review.userId,
-          review.rating,
-          review.isVerified,
-          review.comment,
-          review.createdAt,
-        ]
-          .map((cell) => escapeCsv(cell))
-          .join(","),
-      );
+      const headers = reviewExportFieldOptions
+        .filter((item) => orderedFields.includes(item.key))
+        .map((item) => item.header);
+
+      const rows = allReviews.map((review) => {
+        const values = orderedFields.map((field) => {
+          switch (field) {
+            case "id":
+              return review.id;
+            case "productId":
+              return review.productId;
+            case "userId":
+              return review.userId;
+            case "rating":
+              return review.rating;
+            case "isVerified":
+              return review.isVerified;
+            case "comment":
+              return review.comment;
+            case "createdAt":
+              return formatDateForCsv(review.createdAt);
+            default:
+              return "";
+          }
+        });
+
+        return values.map((cell) => escapeCsv(cell)).join(",");
+      });
 
       const csvContent = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csvContent], {
+      const blob = new Blob(["\uFEFF", csvContent], {
         type: "text/csv;charset=utf-8;",
       });
       const url = URL.createObjectURL(blob);
@@ -339,6 +413,42 @@ function ReviewsAdminPageContent() {
           <Button variant="outline" size="sm" onClick={clearFilters}>
             Clear
           </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border p-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Cột export CSV ({selectedExportFields.length}/
+            {reviewExportFieldOptions.length})
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={selectAllExportFields}>
+              Chọn tất cả
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetDefaultExportFields}
+            >
+              Mặc định
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearExportFields}>
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {reviewExportFieldOptions.map((field) => (
+            <label key={field.key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={selectedExportFields.includes(field.key)}
+                onChange={() => toggleExportField(field.key)}
+              />
+              {field.label}
+            </label>
+          ))}
         </div>
       </div>
 
