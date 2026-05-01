@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import {
   reviewService,
@@ -19,8 +20,45 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default function ReviewsAdminPage() {
+function parsePositiveInt(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseRating(value: string | null): number | "all" {
+  if (!value || value === "all") {
+    return "all";
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+    return "all";
+  }
+  return parsed;
+}
+
+function parseVerified(
+  value: string | null,
+): "all" | "verified" | "unverified" {
+  if (value === "verified" || value === "unverified") {
+    return value;
+  }
+  return "all";
+}
+
+function ReviewsAdminPageContent() {
   const PAGE_SIZE = 10;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const initialPage = parsePositiveInt(searchParams.get("page"), 1);
+  const initialRating = parseRating(searchParams.get("rating"));
+  const initialVerified = parseVerified(searchParams.get("verified"));
+  const initialSearch = searchParams.get("search") ?? "";
+
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [total, setTotal] = useState(0);
@@ -28,12 +66,15 @@ export default function ReviewsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
-  const [ratingFilter, setRatingFilter] = useState<number | "all">("all");
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [ratingFilter, setRatingFilter] = useState<number | "all">(
+    initialRating,
+  );
   const [verifiedFilter, setVerifiedFilter] = useState<
     "all" | "verified" | "unverified"
-  >("all");
-  const [page, setPage] = useState(1);
+  >(initialVerified);
+  const [page, setPage] = useState(initialPage);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -49,7 +90,7 @@ export default function ReviewsAdminPage() {
             : verifiedFilter === "verified"
               ? true
               : false,
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
       };
 
       const [summaryData, listData] = await Promise.all([
@@ -65,21 +106,55 @@ export default function ReviewsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, ratingFilter, verifiedFilter, search]);
+  }, [page, ratingFilter, verifiedFilter, debouncedSearch]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, ratingFilter, verifiedFilter]);
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
 
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
+    setPage(1);
+  }, [debouncedSearch, ratingFilter, verifiedFilter]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (page > 1) {
+      params.set("page", String(page));
     }
-  }, [page, totalPages]);
+    if (ratingFilter !== "all") {
+      params.set("rating", String(ratingFilter));
+    }
+    if (verifiedFilter !== "all") {
+      params.set("verified", verifiedFilter);
+    }
+    const keyword = debouncedSearch.trim();
+    if (keyword) {
+      params.set("search", keyword);
+    }
+
+    const nextQuery = params.toString();
+    const currentQuery = searchParams.toString();
+    if (nextQuery !== currentQuery) {
+      const href = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      router.replace(href, { scroll: false });
+    }
+  }, [
+    page,
+    ratingFilter,
+    verifiedFilter,
+    debouncedSearch,
+    pathname,
+    router,
+    searchParams,
+  ]);
 
   async function handleDelete(reviewId: number) {
     setDeletingId(reviewId);
@@ -113,8 +188,8 @@ export default function ReviewsAdminPage() {
         <input
           className="h-9 rounded-md border border-input bg-background px-3 text-sm md:col-span-2"
           placeholder="Tìm theo product/user/comment"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
         />
         <select
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -266,5 +341,17 @@ export default function ReviewsAdminPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ReviewsAdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-4 text-sm text-muted-foreground">Đang tải...</div>
+      }
+    >
+      <ReviewsAdminPageContent />
+    </Suspense>
   );
 }

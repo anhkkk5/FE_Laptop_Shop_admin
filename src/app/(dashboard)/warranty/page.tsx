@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
   warrantyService,
@@ -41,8 +42,33 @@ const statusOptions: WarrantyTicketStatus[] = [
   "rejected",
 ];
 
-export default function WarrantyAdminPage() {
+function parsePositiveInt(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseStatus(value: string | null): WarrantyTicketStatus | "all" {
+  if (!value) {
+    return "all";
+  }
+  return statusOptions.includes(value as WarrantyTicketStatus)
+    ? (value as WarrantyTicketStatus)
+    : "all";
+}
+
+function WarrantyAdminPageContent() {
   const PAGE_SIZE = 10;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const initialPage = parsePositiveInt(searchParams.get("page"), 1);
+  const initialStatus = parseStatus(searchParams.get("status"));
+  const initialSearch = searchParams.get("search") ?? "";
+
   const [summary, setSummary] = useState<WarrantySummary | null>(null);
   const [tickets, setTickets] = useState<WarrantyTicket[]>([]);
   const [total, setTotal] = useState(0);
@@ -53,9 +79,10 @@ export default function WarrantyAdminPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<
     WarrantyTicketStatus | "all"
-  >("all");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  >(initialStatus);
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [page, setPage] = useState(initialPage);
 
   const [techByTicket, setTechByTicket] = useState<Record<number, string>>({});
 
@@ -64,7 +91,7 @@ export default function WarrantyAdminPage() {
     setError(null);
     try {
       const status = statusFilter === "all" ? undefined : statusFilter;
-      const keyword = search.trim() || undefined;
+      const keyword = debouncedSearch.trim() || undefined;
       const [summaryData, ticketData] = await Promise.all([
         warrantyService.getSummary(),
         warrantyService.getAll({
@@ -83,15 +110,44 @@ export default function WarrantyAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, debouncedSearch]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
     setPage(1);
-  }, [statusFilter, search]);
+  }, [statusFilter, debouncedSearch]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (page > 1) {
+      params.set("page", String(page));
+    }
+    if (statusFilter !== "all") {
+      params.set("status", statusFilter);
+    }
+    const keyword = debouncedSearch.trim();
+    if (keyword) {
+      params.set("search", keyword);
+    }
+
+    const nextQuery = params.toString();
+    const currentQuery = searchParams.toString();
+    if (nextQuery !== currentQuery) {
+      const href = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      router.replace(href, { scroll: false });
+    }
+  }, [page, statusFilter, debouncedSearch, pathname, router, searchParams]);
 
   async function handleAssign(ticketId: number) {
     const technicianId = Number(techByTicket[ticketId] || "");
@@ -174,8 +230,8 @@ export default function WarrantyAdminPage() {
         <input
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           placeholder="Tìm theo mã ticket hoặc tên sản phẩm"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
         />
         <select
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -306,5 +362,17 @@ export default function WarrantyAdminPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WarrantyAdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-4 text-sm text-muted-foreground">Đang tải...</div>
+      }
+    >
+      <WarrantyAdminPageContent />
+    </Suspense>
   );
 }
