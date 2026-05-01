@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import {
   reviewService,
   type Review,
+  type ReviewQuery,
   type ReviewSummary,
 } from "@/lib/review-service";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ export default function ReviewsAdminPage() {
   const PAGE_SIZE = 10;
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -32,51 +35,37 @@ export default function ReviewsAdminPage() {
   >("all");
   const [page, setPage] = useState(1);
 
-  const filteredReviews = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return reviews.filter((review) => {
-      const matchesKeyword =
-        !keyword ||
-        String(review.productId).includes(keyword) ||
-        String(review.userId).includes(keyword) ||
-        (review.comment || "").toLowerCase().includes(keyword);
-
-      const matchesRating =
-        ratingFilter === "all" ? true : review.rating === ratingFilter;
-
-      const matchesVerified =
-        verifiedFilter === "all"
-          ? true
-          : verifiedFilter === "verified"
-            ? review.isVerified
-            : !review.isVerified;
-
-      return matchesKeyword && matchesRating && matchesVerified;
-    });
-  }, [reviews, search, ratingFilter, verifiedFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredReviews.length / PAGE_SIZE));
-  const paginatedReviews = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredReviews.slice(start, start + PAGE_SIZE);
-  }, [filteredReviews, page]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const query: ReviewQuery = {
+        page,
+        limit: PAGE_SIZE,
+        rating: ratingFilter === "all" ? undefined : ratingFilter,
+        isVerified:
+          verifiedFilter === "all"
+            ? undefined
+            : verifiedFilter === "verified"
+              ? true
+              : false,
+        search: search.trim() || undefined,
+      };
+
       const [summaryData, listData] = await Promise.all([
         reviewService.getSummary(),
-        reviewService.getAll(1, 30),
+        reviewService.getAll(query),
       ]);
       setSummary(summaryData);
       setReviews(listData.data);
+      setTotal(listData.meta.total);
+      setTotalPages(Math.max(1, listData.meta.totalPages || 1));
     } catch {
       setError("Không thể tải dữ liệu đánh giá");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, ratingFilter, verifiedFilter, search]);
 
   useEffect(() => {
     void fetchData();
@@ -114,6 +103,12 @@ export default function ReviewsAdminPage() {
         </p>
       </div>
 
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <div className="grid gap-3 rounded-lg border p-3 md:grid-cols-4">
         <input
           className="h-9 rounded-md border border-input bg-background px-3 text-sm md:col-span-2"
@@ -150,12 +145,6 @@ export default function ReviewsAdminPage() {
           <option value="unverified">Chưa xác thực</option>
         </select>
       </div>
-
-      {error && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -214,7 +203,7 @@ export default function ReviewsAdminPage() {
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : filteredReviews.length === 0 ? (
+            ) : reviews.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -224,7 +213,7 @@ export default function ReviewsAdminPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedReviews.map((review) => (
+              reviews.map((review) => (
                 <TableRow key={review.id}>
                   <TableCell>{review.id}</TableCell>
                   <TableCell>{review.productId}</TableCell>
@@ -255,7 +244,7 @@ export default function ReviewsAdminPage() {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {filteredReviews.length} kết quả • Trang {page}/{totalPages}
+          {total} kết quả • Trang {page}/{totalPages}
         </p>
         <div className="flex items-center gap-2">
           <Button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   warrantyService,
@@ -45,6 +45,8 @@ export default function WarrantyAdminPage() {
   const PAGE_SIZE = 10;
   const [summary, setSummary] = useState<WarrantySummary | null>(null);
   const [tickets, setTickets] = useState<WarrantyTicket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<number | null>(null);
@@ -57,43 +59,31 @@ export default function WarrantyAdminPage() {
 
   const [techByTicket, setTechByTicket] = useState<Record<number, string>>({});
 
-  const filteredTickets = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return tickets.filter((ticket) => {
-      const matchesStatus =
-        statusFilter === "all" ? true : ticket.status === statusFilter;
-
-      const matchesKeyword =
-        !keyword ||
-        ticket.ticketCode.toLowerCase().includes(keyword) ||
-        ticket.productName.toLowerCase().includes(keyword);
-
-      return matchesStatus && matchesKeyword;
-    });
-  }, [tickets, statusFilter, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / PAGE_SIZE));
-  const paginatedTickets = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredTickets.slice(start, start + PAGE_SIZE);
-  }, [filteredTickets, page]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const status = statusFilter === "all" ? undefined : statusFilter;
+      const keyword = search.trim() || undefined;
       const [summaryData, ticketData] = await Promise.all([
         warrantyService.getSummary(),
-        warrantyService.getAll(1, 30),
+        warrantyService.getAll({
+          page,
+          limit: PAGE_SIZE,
+          status,
+          search: keyword,
+        }),
       ]);
       setSummary(summaryData);
       setTickets(ticketData.data);
+      setTotal(ticketData.meta.total);
+      setTotalPages(Math.max(1, ticketData.meta.totalPages || 1));
     } catch {
       setError("Không thể tải dữ liệu bảo hành");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, statusFilter, search]);
 
   useEffect(() => {
     void fetchData();
@@ -102,12 +92,6 @@ export default function WarrantyAdminPage() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter, search]);
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
 
   async function handleAssign(ticketId: number) {
     const technicianId = Number(techByTicket[ticketId] || "");
@@ -208,7 +192,7 @@ export default function WarrantyAdminPage() {
           ))}
         </select>
         <div className="flex items-center text-sm text-muted-foreground">
-          {filteredTickets.length} ticket phù hợp
+          {total} ticket phù hợp
         </div>
       </div>
 
@@ -231,7 +215,7 @@ export default function WarrantyAdminPage() {
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : filteredTickets.length === 0 ? (
+            ) : tickets.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -241,7 +225,7 @@ export default function WarrantyAdminPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTickets.map((ticket) => (
+              tickets.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell className="font-medium">
                     {ticket.ticketCode}

@@ -49,19 +49,40 @@ export interface WarrantySummary {
   rejected: number;
 }
 
+export interface WarrantyQuery {
+  page?: number;
+  limit?: number;
+  status?: WarrantyTicketStatus;
+  search?: string;
+}
+
 export const warrantyService = {
   async getSummary(): Promise<WarrantySummary> {
     const res = await api.get("/admin/warranty/summary");
     return res.data.data;
   },
 
-  async getAll(page: number = 1, limit: number = 20): Promise<PaginatedResult<WarrantyTicket>> {
-    const res = await api.get("/admin/warranty/all", { params: { page, limit } });
+  async getAll(
+    query: WarrantyQuery = {},
+  ): Promise<PaginatedResult<WarrantyTicket>> {
+    const res = await api.get("/admin/warranty/all", {
+      params: {
+        page: query.page ?? 1,
+        limit: query.limit ?? 10,
+        status: query.status,
+        search: query.search,
+      },
+    });
     return res.data.data;
   },
 
-  async assign(ticketId: number, technicianId: number): Promise<WarrantyTicket> {
-    const res = await api.patch(`/admin/warranty/${ticketId}/assign`, { technicianId });
+  async assign(
+    ticketId: number,
+    technicianId: number,
+  ): Promise<WarrantyTicket> {
+    const res = await api.patch(`/admin/warranty/${ticketId}/assign`, {
+      technicianId,
+    });
     return res.data.data;
   },
 

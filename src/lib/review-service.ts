@@ -22,6 +22,14 @@ export interface PaginatedResult<T> {
   };
 }
 
+export interface ReviewQuery {
+  page?: number;
+  limit?: number;
+  rating?: number;
+  isVerified?: boolean;
+  search?: string;
+}
+
 export interface ReviewSummary {
   total: number;
   verified: number;
@@ -41,8 +49,16 @@ export const reviewService = {
     return res.data.data;
   },
 
-  async getAll(page: number = 1, limit: number = 20): Promise<PaginatedResult<Review>> {
-    const res = await api.get("/admin/reviews", { params: { page, limit } });
+  async getAll(query: ReviewQuery = {}): Promise<PaginatedResult<Review>> {
+    const res = await api.get("/admin/reviews", {
+      params: {
+        page: query.page ?? 1,
+        limit: query.limit ?? 10,
+        rating: query.rating,
+        isVerified: query.isVerified,
+        search: query.search,
+      },
+    });
     return res.data.data;
   },
 
