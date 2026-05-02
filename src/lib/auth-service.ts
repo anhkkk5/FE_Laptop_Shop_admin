@@ -1,12 +1,6 @@
 import api from "./api";
 import { AxiosError } from "axios";
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: string;
-}
-
 export interface AdminUser {
   id: number;
   email: string;
@@ -36,16 +30,16 @@ function getErrorMessage(error: unknown): string {
 }
 
 export const authService = {
-  async login(email: string, password: string): Promise<AuthTokens> {
+  async login(email: string, password: string): Promise<AdminUser> {
     try {
-      const res = await api.post<ApiResponse<AuthTokens>>("/auth/login", {
-        email,
-        password,
-      });
-      const tokens = res.data.data;
-      localStorage.setItem("admin_accessToken", tokens.accessToken);
-      localStorage.setItem("admin_refreshToken", tokens.refreshToken);
-      return tokens;
+      const res = await api.post<ApiResponse<{ user: AdminUser }>>(
+        "/auth/login",
+        {
+          email,
+          password,
+        },
+      );
+      return res.data.data.user;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -53,13 +47,10 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      const refreshToken = localStorage.getItem("admin_refreshToken");
-      if (refreshToken) {
-        await api.post("/auth/logout", { refreshToken });
-      }
-    } finally {
-      localStorage.removeItem("admin_accessToken");
-      localStorage.removeItem("admin_refreshToken");
+      await api.post("/auth/logout");
+    } catch (error) {
+      // Ignore errors during logout
+      console.error("Logout error:", error);
     }
   },
 
@@ -72,8 +63,12 @@ export const authService = {
     }
   },
 
-  isAuthenticated(): boolean {
-    if (typeof window === "undefined") return false;
-    return !!localStorage.getItem("admin_accessToken");
+  async checkAuth(): Promise<boolean> {
+    try {
+      await this.getMe();
+      return true;
+    } catch {
+      return false;
+    }
   },
 };

@@ -32,10 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      if (!authService.isAuthenticated()) {
-        setUser(null);
-        return;
-      }
       const userData = await authService.getMe();
       if (!ALLOWED_ROLES.includes(userData.role)) {
         await authService.logout();
@@ -45,8 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
     } catch {
       setUser(null);
-      localStorage.removeItem("admin_accessToken");
-      localStorage.removeItem("admin_refreshToken");
     }
   }, []);
 
@@ -66,8 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      await authService.login(email, password);
-      const userData = await authService.getMe();
+      const userData = await authService.login(email, password);
       if (!ALLOWED_ROLES.includes(userData.role)) {
         await authService.logout();
         throw new Error("Tài khoản không có quyền truy cập trang quản trị");

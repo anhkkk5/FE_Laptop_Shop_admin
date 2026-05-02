@@ -1,23 +1,15 @@
 import axios from "axios";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3100/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: false,
+  withCredentials: true, // Enable sending cookies with requests
 });
 
-api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("admin_accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  }
-  return config;
-});
+// No need for request interceptor - cookies are sent automatically
 
 api.interceptors.response.use(
   (response) => response,
@@ -33,22 +25,17 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem("admin_refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
+        // Call refresh endpoint - cookies are sent automatically
+        await axios.post(
+          `${API_URL}/auth/refresh`,
+          {},
+          { withCredentials: true },
+        );
 
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const tokens = data.data;
-        localStorage.setItem("admin_accessToken", tokens.accessToken);
-        localStorage.setItem("admin_refreshToken", tokens.refreshToken);
-
-        originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        // Retry the original request - new cookies are set automatically
         return api(originalRequest);
       } catch {
-        localStorage.removeItem("admin_accessToken");
-        localStorage.removeItem("admin_refreshToken");
+        // Refresh failed - redirect to login
         if (typeof window !== "undefined") {
           window.location.href = "/login";
         }
