@@ -71,6 +71,12 @@ const sidebarItems: SidebarItem[] = [
     roles: ["admin"],
   },
   {
+    href: "/staff",
+    label: "Nhân sự",
+    icon: Users,
+    roles: ["admin"],
+  },
+  {
     href: "/orders",
     label: "Đơn hàng",
     icon: ShoppingCart,

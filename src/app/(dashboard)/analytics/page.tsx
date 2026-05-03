@@ -1,13 +1,42 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  TrendingUp,
+  Package,
+  ShoppingCart,
+  Wrench,
+} from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { productService, type InventorySummary } from "@/lib/product-service";
+import {
+  getDashboardOverview,
+  type DashboardOverview,
+} from "@/lib/dashboard-service";
 import { Button } from "@/components/ui/button";
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
 export default function AnalyticsPage() {
   const isFetchingRef = useRef(false);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -30,27 +59,24 @@ export default function AnalyticsPage() {
     isThresholdInputValid && parsedThresholdInput !== appliedThreshold;
 
   let inventoryHealthLabel = "Ổn định";
-  if (alertRate >= 30) {
-    inventoryHealthLabel = "Cần chú ý";
-  }
-  if (alertRate >= 50) {
-    inventoryHealthLabel = "Rủi ro cao";
-  }
+  if (alertRate >= 30) inventoryHealthLabel = "Cần chú ý";
+  if (alertRate >= 50) inventoryHealthLabel = "Rủi ro cao";
 
-  async function fetchInventoryStats() {
-    if (isFetchingRef.current) {
-      return;
-    }
-
+  async function fetchData() {
+    if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     setLoading(true);
     setError(null);
     try {
-      const data = await productService.getInventorySummary(appliedThreshold);
-      setSummary(data);
-      setLastUpdatedAt(new Date(data.generatedAt).toLocaleString("vi-VN"));
+      const [invData, dashData] = await Promise.all([
+        productService.getInventorySummary(appliedThreshold),
+        getDashboardOverview({ topProductsLimit: 5 }),
+      ]);
+      setSummary(invData);
+      setDashboard(dashData);
+      setLastUpdatedAt(new Date(invData.generatedAt).toLocaleString("vi-VN"));
     } catch {
-      setError("Không thể tải dữ liệu thống kê tồn kho");
+      setError("Không thể tải dữ liệu thống kê");
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -100,7 +126,7 @@ export default function AnalyticsPage() {
       return;
     }
 
-    void fetchInventoryStats();
+    void fetchData();
   }, [appliedThreshold, thresholdReady]);
 
   useEffect(() => {
@@ -109,7 +135,7 @@ export default function AnalyticsPage() {
     }
 
     const timer = window.setInterval(() => {
-      void fetchInventoryStats();
+      void fetchData();
     }, autoRefreshSeconds * 1000);
 
     return () => {
@@ -121,6 +147,26 @@ export default function AnalyticsPage() {
     thresholdReady,
     appliedThreshold,
   ]);
+
+  const REVENUE_COLORS = [
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#3b82f6",
+    "#8b5cf6",
+  ];
+  const ORDER_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+  const revenueChartData =
+    dashboard?.revenueByStatus.map((r) => ({
+      name: r.status,
+      amount: r.amount,
+    })) || [];
+  const ordersChartData =
+    dashboard?.ordersByStatus.map((o) => ({
+      name: o.status,
+      count: o.count,
+    })) || [];
 
   function applyThreshold() {
     const parsed = Number(thresholdInput.trim());
@@ -176,7 +222,7 @@ export default function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Thống kê</h1>
           <p className="text-muted-foreground">
-            Tổng quan tồn kho sản phẩm cho quản trị viên.
+            Tổng quan doanh thu, đơn hàng và tồn kho.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Ngưỡng đang áp dụng: ≤ {appliedThreshold}
@@ -259,11 +305,7 @@ export default function AnalyticsPage() {
               ? `Tự làm mới mỗi ${autoRefreshSeconds}s`
               : "Tự làm mới đang tắt"}
           </span>
-          <Button
-            variant="outline"
-            onClick={fetchInventoryStats}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={fetchData} disabled={loading}>
             Làm mới
           </Button>
         </div>
@@ -280,50 +322,204 @@ export default function AnalyticsPage() {
           <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
-            <p className="text-2xl font-bold mt-1">{totalProducts}</p>
+        <>
+          {/* Dashboard KPIs */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
+              </div>
+              <p className="text-2xl font-bold mt-1">
+                {formatCurrency(dashboard?.totalRevenue || 0)}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-blue-600" />
+                <p className="text-sm text-muted-foreground">Tổng đơn hàng</p>
+              </div>
+              <p className="text-2xl font-bold mt-1">
+                {dashboard?.orderCount || 0}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-orange-600" />
+                <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
+              </div>
+              <p className="text-2xl font-bold mt-1">
+                {dashboard?.productCount || totalProducts}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-purple-600" />
+                <p className="text-sm text-muted-foreground">Bảo hành</p>
+              </div>
+              <p className="text-2xl font-bold mt-1">
+                {dashboard?.warrantyCount || 0}
+              </p>
+            </div>
           </div>
-          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
-            <p className="text-sm text-muted-foreground">
-              Tổng cảnh báo tồn kho
-            </p>
-            <p className="text-2xl font-bold mt-1 text-orange-700">
-              {totalAlerts}
-            </p>
+
+          {/* Charts */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-4">
+                Doanh thu theo trạng thái
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis
+                      tickFormatter={(v) =>
+                        new Intl.NumberFormat("vi-VN", {
+                          notation: "compact",
+                          compactDisplay: "short",
+                        }).format(v)
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value) => formatCurrency(Number(value))}
+                    />
+                    <Bar dataKey="amount">
+                      {revenueChartData.map((_, index) => (
+                        <Cell
+                          key={index}
+                          fill={REVENUE_COLORS[index % REVENUE_COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-4">
+                Đơn hàng theo trạng thái
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ordersChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count">
+                      {ordersChartData.map((_, index) => (
+                        <Cell
+                          key={index}
+                          fill={ORDER_COLORS[index % ORDER_COLORS.length]}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            <p className="text-sm text-muted-foreground">Hết hàng</p>
-            <p className="text-2xl font-bold mt-1 text-destructive">
-              {outOfStock}
-            </p>
+
+          {/* Top Products */}
+          {dashboard && dashboard.topProducts.length > 0 && (
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-3">Sản phẩm bán chạy</h3>
+              <div className="divide-y">
+                {dashboard.topProducts.map((p) => (
+                  <div
+                    key={p.productId}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{p.productName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.totalSold} đã bán
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {formatCurrency(p.revenue)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Orders */}
+          {dashboard && dashboard.recentOrders.length > 0 && (
+            <div className="rounded-lg border p-4">
+              <h3 className="text-sm font-semibold mb-3">Đơn hàng gần đây</h3>
+              <div className="divide-y">
+                {dashboard.recentOrders.map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{o.orderCode}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {o.customerName}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">
+                        {formatCurrency(o.total)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(o.createdAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Inventory Section */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
+              <p className="text-2xl font-bold mt-1">{totalProducts}</p>
+            </div>
+            <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+              <p className="text-sm text-muted-foreground">
+                Tổng cảnh báo tồn kho
+              </p>
+              <p className="text-2xl font-bold mt-1 text-orange-700">
+                {totalAlerts}
+              </p>
+            </div>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm text-muted-foreground">Hết hàng</p>
+              <p className="text-2xl font-bold mt-1 text-destructive">
+                {outOfStock}
+              </p>
+            </div>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+              <p className="text-sm text-muted-foreground">
+                Sắp hết (≤ {summary?.lowStockThreshold || 5})
+              </p>
+              <p className="text-2xl font-bold mt-1 text-amber-700">
+                {lowStock}
+              </p>
+            </div>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm text-muted-foreground">Tỷ lệ hết hàng</p>
+              <p className="text-2xl font-bold mt-1 text-destructive">
+                {outOfStockRate}%
+              </p>
+            </div>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+              <p className="text-sm text-muted-foreground">Tỷ lệ sắp hết</p>
+              <p className="text-2xl font-bold mt-1 text-amber-700">
+                {lowStockRate}%
+              </p>
+            </div>
           </div>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <p className="text-sm text-muted-foreground">
-              Sắp hết (≤ {summary?.lowStockThreshold || 5})
-            </p>
-            <p className="text-2xl font-bold mt-1 text-amber-700">{lowStock}</p>
-          </div>
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-            <p className="text-sm text-muted-foreground">Tỷ lệ hết hàng</p>
-            <p className="text-2xl font-bold mt-1 text-destructive">
-              {outOfStockRate}%
-            </p>
-          </div>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-            <p className="text-sm text-muted-foreground">Tỷ lệ sắp hết</p>
-            <p className="text-2xl font-bold mt-1 text-amber-700">
-              {lowStockRate}%
-            </p>
-          </div>
-          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
-            <p className="text-sm text-muted-foreground">Tỷ lệ cảnh báo</p>
-            <p className="text-2xl font-bold mt-1 text-orange-700">
-              {alertRate}%
-            </p>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
