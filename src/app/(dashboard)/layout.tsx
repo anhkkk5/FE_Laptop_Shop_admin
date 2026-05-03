@@ -18,6 +18,7 @@ import {
   Wrench,
   MessageSquare,
   Bell,
+  Warehouse,
 } from "lucide-react";
 import { type ComponentType, useMemo, useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -58,6 +59,12 @@ const sidebarItems: SidebarItem[] = [
     roles: ["admin", "warehouse"],
   },
   {
+    href: "/warehouse",
+    label: "Kho hàng",
+    icon: Warehouse,
+    roles: ["admin", "warehouse"],
+  },
+  {
     href: "/users",
     label: "Người dùng",
     icon: Users,
@@ -74,6 +81,12 @@ const sidebarItems: SidebarItem[] = [
     label: "Bảo hành",
     icon: Wrench,
     roles: ["admin", "technician"],
+  },
+  {
+    href: "/technician",
+    label: "Công việc của tôi",
+    icon: Wrench,
+    roles: ["technician"],
   },
   {
     href: "/reviews",

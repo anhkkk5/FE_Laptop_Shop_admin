@@ -98,4 +98,31 @@ export const warrantyService = {
     const res = await api.patch(`/admin/warranty/${ticketId}/status`, payload);
     return res.data.data;
   },
+
+  async getTicketById(ticketId: number): Promise<WarrantyTicket> {
+    const res = await api.get(`/warranty/${ticketId}`);
+    return res.data.data;
+  },
+
+  async getLogs(ticketId: number): Promise<RepairLog[]> {
+    const res = await api.get(`/warranty/${ticketId}/logs`);
+    return res.data.data;
+  },
+
+  async addRepairLog(
+    ticketId: number,
+    payload: { action: string; notes?: string },
+  ): Promise<RepairLog> {
+    const res = await api.post(`/warranty/${ticketId}/logs`, payload);
+    return res.data.data;
+  },
 };
+
+export interface RepairLog {
+  id: number;
+  ticketId: number;
+  action: string;
+  notes: string | null;
+  performedBy: number;
+  createdAt: string;
+}

@@ -98,6 +98,8 @@ function ReviewsAdminPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<
     ReviewExportField[]
@@ -341,11 +343,48 @@ function ReviewsAdminPageContent() {
     setError(null);
     try {
       await reviewService.remove(reviewId);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(reviewId);
+        return next;
+      });
       await fetchData();
     } catch {
       setError("Không thể xóa đánh giá");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedIds(new Set(reviews.map((r) => r.id)));
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    setError(null);
+    try {
+      await Promise.all([...selectedIds].map((id) => reviewService.remove(id)));
+      setSelectedIds(new Set());
+      await fetchData();
+    } catch {
+      setError("Không thể xóa hàng loạt. Một số đánh giá có thể đã được xóa.");
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -402,6 +441,18 @@ function ReviewsAdminPageContent() {
           <option value="unverified">Chưa xác thực</option>
         </select>
         <div className="flex items-center justify-end gap-2 md:col-span-4">
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={bulkDeleting}
+              onClick={() => void handleBulkDelete()}
+            >
+              {bulkDeleting
+                ? "Đang xóa..."
+                : `Xóa ${selectedIds.size} đánh giá`}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -493,6 +544,19 @@ function ReviewsAdminPageContent() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>
+                <input
+                  type="checkbox"
+                  checked={
+                    reviews.length > 0 && selectedIds.size === reviews.length
+                  }
+                  onChange={() => {
+                    if (selectedIds.size === reviews.length) clearSelection();
+                    else selectAll();
+                  }}
+                  className="h-4 w-4"
+                />
+              </TableHead>
               <TableHead>ID</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>User</TableHead>
@@ -505,14 +569,14 @@ function ReviewsAdminPageContent() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center">
+                <TableCell colSpan={8} className="py-10 text-center">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : reviews.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="py-10 text-center text-muted-foreground"
                 >
                   Không có đánh giá phù hợp bộ lọc
@@ -521,6 +585,14 @@ function ReviewsAdminPageContent() {
             ) : (
               reviews.map((review) => (
                 <TableRow key={review.id}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(review.id)}
+                      onChange={() => toggleSelect(review.id)}
+                      className="h-4 w-4"
+                    />
+                  </TableCell>
                   <TableCell>{review.id}</TableCell>
                   <TableCell>{review.productId}</TableCell>
                   <TableCell>{review.userId}</TableCell>
