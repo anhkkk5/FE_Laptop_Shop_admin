@@ -157,13 +157,24 @@ export default function AnalyticsPage() {
   ];
   const ORDER_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
+  const revenueByStatus = dashboard?.revenueByStatus ?? [];
+  const ordersByStatus = dashboard?.ordersByStatus ?? [];
+  const topProducts = dashboard?.topProducts ?? [];
+  const recentOrders = dashboard?.recentOrders ?? [];
+  const dashboardTotalRevenue = Number(dashboard?.totalRevenue ?? 0);
+  const dashboardOrderCount = Number(dashboard?.orderCount ?? 0);
+  const dashboardProductCount = Number(
+    dashboard?.productCount ?? totalProducts,
+  );
+  const dashboardWarrantyCount = Number(dashboard?.warrantyCount ?? 0);
+
   const revenueChartData =
-    dashboard?.revenueByStatus.map((r) => ({
+    revenueByStatus.map((r) => ({
       name: r.status,
       amount: r.amount,
     })) || [];
   const ordersChartData =
-    dashboard?.ordersByStatus.map((o) => ({
+    ordersByStatus.map((o) => ({
       name: o.status,
       count: o.count,
     })) || [];
@@ -331,7 +342,7 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
               </div>
               <p className="text-2xl font-bold mt-1">
-                {formatCurrency(dashboard?.totalRevenue || 0)}
+                {formatCurrency(dashboardTotalRevenue)}
               </p>
             </div>
             <div className="rounded-lg border p-4">
@@ -339,18 +350,14 @@ export default function AnalyticsPage() {
                 <ShoppingCart className="h-4 w-4 text-blue-600" />
                 <p className="text-sm text-muted-foreground">Tổng đơn hàng</p>
               </div>
-              <p className="text-2xl font-bold mt-1">
-                {dashboard?.orderCount || 0}
-              </p>
+              <p className="text-2xl font-bold mt-1">{dashboardOrderCount}</p>
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-orange-600" />
                 <p className="text-sm text-muted-foreground">Tổng sản phẩm</p>
               </div>
-              <p className="text-2xl font-bold mt-1">
-                {dashboard?.productCount || totalProducts}
-              </p>
+              <p className="text-2xl font-bold mt-1">{dashboardProductCount}</p>
             </div>
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2">
@@ -358,7 +365,7 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-muted-foreground">Bảo hành</p>
               </div>
               <p className="text-2xl font-bold mt-1">
-                {dashboard?.warrantyCount || 0}
+                {dashboardWarrantyCount}
               </p>
             </div>
           </div>
@@ -424,11 +431,11 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Top Products */}
-          {dashboard && dashboard.topProducts.length > 0 && (
+          {dashboard && topProducts.length > 0 && (
             <div className="rounded-lg border p-4">
               <h3 className="text-sm font-semibold mb-3">Sản phẩm bán chạy</h3>
               <div className="divide-y">
-                {dashboard.topProducts.map((p) => (
+                {topProducts.map((p) => (
                   <div
                     key={p.productId}
                     className="flex items-center justify-between py-2"
@@ -449,11 +456,11 @@ export default function AnalyticsPage() {
           )}
 
           {/* Recent Orders */}
-          {dashboard && dashboard.recentOrders.length > 0 && (
+          {dashboard && recentOrders.length > 0 && (
             <div className="rounded-lg border p-4">
               <h3 className="text-sm font-semibold mb-3">Đơn hàng gần đây</h3>
               <div className="divide-y">
-                {dashboard.recentOrders.map((o) => (
+                {recentOrders.map((o) => (
                   <div
                     key={o.id}
                     className="flex items-center justify-between py-2"

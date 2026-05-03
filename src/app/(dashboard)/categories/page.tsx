@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Loader2,
-  FolderTree,
-} from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, FolderTree } from "lucide-react";
 import {
   categoryService,
   type Category,
@@ -49,7 +43,6 @@ function slugify(text: string): string {
 
 const emptyForm: CreateCategoryPayload & { id?: number } = {
   name: "",
-  slug: "",
   description: "",
   image: "",
   parentId: undefined,
@@ -113,6 +106,9 @@ export default function CategoriesPage() {
       const payload = { ...form };
       delete (payload as Record<string, unknown>).id;
       if (!payload.parentId) delete payload.parentId;
+      if (!editing) {
+        delete payload.slug;
+      }
 
       if (editing && form.id) {
         await categoryService.update(form.id, payload);
@@ -141,7 +137,10 @@ export default function CategoriesPage() {
     }
   }
 
-  function flattenCategories(cats: Category[], depth = 0): (Category & { depth: number })[] {
+  function flattenCategories(
+    cats: Category[],
+    depth = 0,
+  ): (Category & { depth: number })[] {
     const result: (Category & { depth: number })[] = [];
     for (const cat of cats) {
       result.push({ ...cat, depth });
@@ -153,6 +152,7 @@ export default function CategoriesPage() {
   }
 
   const flatList = flattenCategories(categories);
+  const autoSlug = slugify(form.name || "");
 
   if (loading) {
     return (
@@ -198,7 +198,10 @@ export default function CategoriesPage() {
           <TableBody>
             {flatList.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-10 text-muted-foreground"
+                >
                   <FolderTree className="h-10 w-10 mx-auto mb-2 opacity-30" />
                   Chưa có danh mục nào
                 </TableCell>
@@ -208,12 +211,19 @@ export default function CategoriesPage() {
                 <TableRow key={cat.id}>
                   <TableCell className="font-mono text-xs">{cat.id}</TableCell>
                   <TableCell>
-                    <span style={{ paddingLeft: `${cat.depth * 24}px` }} className="flex items-center gap-2">
-                      {cat.depth > 0 && <span className="text-muted-foreground">└</span>}
+                    <span
+                      style={{ paddingLeft: `${cat.depth * 24}px` }}
+                      className="flex items-center gap-2"
+                    >
+                      {cat.depth > 0 && (
+                        <span className="text-muted-foreground">└</span>
+                      )}
                       <span className="font-medium">{cat.name}</span>
                     </span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{cat.slug}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {cat.slug}
+                  </TableCell>
                   <TableCell className="text-center">{cat.sortOrder}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant={cat.isActive ? "default" : "secondary"}>
@@ -222,7 +232,11 @@ export default function CategoriesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(cat)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(cat)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
@@ -249,7 +263,9 @@ export default function CategoriesPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{editing ? "Sửa danh mục" : "Thêm danh mục"}</DialogTitle>
+            <DialogTitle>
+              {editing ? "Sửa danh mục" : "Thêm danh mục"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {error && dialogOpen && (
@@ -261,30 +277,27 @@ export default function CategoriesPage() {
               <Label>Tên danh mục *</Label>
               <Input
                 value={form.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setForm((f) => ({
-                    ...f,
-                    name,
-                    slug: editing ? f.slug : slugify(name),
-                  }));
-                }}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, name: e.target.value }))
+                }
                 placeholder="Laptop Gaming"
               />
             </div>
             <div className="space-y-2">
-              <Label>Slug *</Label>
+              <Label>Slug (tự tạo)</Label>
               <Input
-                value={form.slug}
-                onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                value={editing ? (form.slug ?? autoSlug) : autoSlug}
                 placeholder="laptop-gaming"
+                disabled
               />
             </div>
             <div className="space-y-2">
               <Label>Mô tả</Label>
               <Textarea
                 value={form.description || ""}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
                 placeholder="Mô tả ngắn..."
                 rows={3}
               />
@@ -298,7 +311,9 @@ export default function CategoriesPage() {
                   onChange={(e) =>
                     setForm((f) => ({
                       ...f,
-                      parentId: e.target.value ? Number(e.target.value) : undefined,
+                      parentId: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
                     }))
                   }
                 >
@@ -317,7 +332,12 @@ export default function CategoriesPage() {
                 <Input
                   type="number"
                   value={form.sortOrder}
-                  onChange={(e) => setForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      sortOrder: Number(e.target.value),
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -333,7 +353,7 @@ export default function CategoriesPage() {
             <DialogClose asChild>
               <Button variant="outline">Hủy</Button>
             </DialogClose>
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.slug}>
+            <Button onClick={handleSave} disabled={saving || !form.name}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editing ? "Cập nhật" : "Tạo mới"}
             </Button>

@@ -88,6 +88,7 @@ const emptyForm: CreateProductPayload & { id?: number } = {
   stockQuantity: 0,
   categoryId: undefined,
   brandId: undefined,
+  sellerId: undefined,
   status: "draft",
   isFeatured: false,
   sortOrder: 0,
@@ -172,6 +173,7 @@ export default function ProductsPage() {
       stockQuantity: p.stockQuantity,
       categoryId: p.categoryId || undefined,
       brandId: p.brandId || undefined,
+      sellerId: p.sellerId || undefined,
       status: p.status,
       isFeatured: p.isFeatured,
       sortOrder: p.sortOrder,
@@ -191,6 +193,7 @@ export default function ProductsPage() {
       delete (payload as Record<string, unknown>).id;
       if (!payload.categoryId) delete payload.categoryId;
       if (!payload.brandId) delete payload.brandId;
+      if (!payload.sellerId) delete payload.sellerId;
       if (!payload.salePrice) delete payload.salePrice;
 
       if (editing && id) {
@@ -648,6 +651,21 @@ export default function ProductsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Seller ID</Label>
+                <Input
+                  type="number"
+                  value={form.sellerId || ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      sellerId: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
+                    }))
+                  }
+                />
               </div>
               <div className="space-y-2">
                 <Label>Trạng thái</Label>

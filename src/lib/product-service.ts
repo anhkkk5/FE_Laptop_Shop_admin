@@ -22,6 +22,7 @@ export interface Product {
   stockQuantity: number;
   categoryId: number | null;
   brandId: number | null;
+  sellerId: number | null;
   status: string;
   specs: Record<string, string> | null;
   isFeatured: boolean;
@@ -80,6 +81,7 @@ export interface CreateProductPayload {
   stockQuantity?: number;
   categoryId?: number;
   brandId?: number;
+  sellerId?: number;
   status?: string;
   specs?: Record<string, string>;
   isFeatured?: boolean;

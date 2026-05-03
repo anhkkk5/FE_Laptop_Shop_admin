@@ -17,7 +17,7 @@ export interface Category {
 
 export interface CreateCategoryPayload {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   image?: string;
   parentId?: number;

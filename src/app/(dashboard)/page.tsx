@@ -92,41 +92,51 @@ export default function DashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  const revenueByStatus = data?.revenueByStatus ?? [];
+  const ordersByStatus = data?.ordersByStatus ?? [];
+  const warrantyByStatus = data?.warrantyByStatus ?? [];
+  const topProducts = data?.topProducts ?? [];
+  const recentOrders = data?.recentOrders ?? [];
+  const totalRevenue = Number(data?.totalRevenue ?? 0);
+  const orderCount = Number(data?.orderCount ?? 0);
+  const productCount = Number(data?.productCount ?? 0);
+  const warrantyCount = Number(data?.warrantyCount ?? 0);
+
   const stats = [
     {
       title: "Doanh thu",
-      value: data ? formatVND(data.totalRevenue) : "—",
+      value: data ? formatVND(totalRevenue) : "—",
       icon: DollarSign,
       description: data
-        ? `Thành công: ${formatVND(data.revenueByStatus.find((r) => r.status === "success")?.amount ?? 0)}`
+        ? `Thành công: ${formatVND(revenueByStatus.find((r) => r.status === "success")?.amount ?? 0)}`
         : "Đang tải...",
     },
     {
       title: "Tổng đơn hàng",
-      value: data ? data.orderCount.toLocaleString("vi-VN") : "—",
+      value: data ? orderCount.toLocaleString("vi-VN") : "—",
       icon: ShoppingCart,
       description: data
-        ? `Hoàn thành: ${data.ordersByStatus.find((o) => o.status === "completed")?.count ?? 0}`
+        ? `Hoàn thành: ${ordersByStatus.find((o) => o.status === "completed")?.count ?? 0}`
         : "Đang tải...",
     },
     {
       title: "Sản phẩm active",
-      value: data ? data.productCount.toLocaleString("vi-VN") : "—",
+      value: data ? productCount.toLocaleString("vi-VN") : "—",
       icon: Laptop,
       description: "Đang bán",
     },
     {
       title: "Phiếu bảo hành",
-      value: data ? data.warrantyCount.toLocaleString("vi-VN") : "—",
+      value: data ? warrantyCount.toLocaleString("vi-VN") : "—",
       icon: ShieldCheck,
       description: data
-        ? `Chờ xử lý: ${data.warrantyByStatus.filter((w) => !["completed", "returned", "rejected"].includes(w.status)).reduce((s, w) => s + w.count, 0)}`
+        ? `Chờ xử lý: ${warrantyByStatus.filter((w) => !["completed", "returned", "rejected"].includes(w.status)).reduce((s, w) => s + w.count, 0)}`
         : "Đang tải...",
     },
   ];
 
   const maxOrderCount = data
-    ? Math.max(...data.ordersByStatus.map((o) => o.count), 1)
+    ? Math.max(...ordersByStatus.map((o) => o.count), 1)
     : 1;
 
   return (
@@ -191,7 +201,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {data ? (
-              data.ordersByStatus.map((item) => (
+              ordersByStatus.map((item) => (
                 <div key={item.status} className="flex items-center gap-3">
                   <span className="w-28 text-sm">
                     {orderStatusLabel[item.status] ?? item.status}
@@ -225,7 +235,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {data ? (
-              data.warrantyByStatus.map((item) => (
+              warrantyByStatus.map((item) => (
                 <div key={item.status} className="flex items-center gap-3">
                   <span className="w-28 text-sm">
                     {warrantyStatusLabel[item.status] ?? item.status}
@@ -247,7 +257,7 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Sản phẩm bán chạy</CardTitle>
           </CardHeader>
           <CardContent>
-            {data && data.topProducts.length > 0 ? (
+            {data && topProducts.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -257,7 +267,7 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.topProducts.map((p) => (
+                  {topProducts.map((p) => (
                     <TableRow key={p.productId}>
                       <TableCell className="font-medium">
                         {p.productName}
@@ -286,7 +296,7 @@ export default function DashboardPage() {
             <CardTitle className="text-base">Đơn hàng gần đây</CardTitle>
           </CardHeader>
           <CardContent>
-            {data && data.recentOrders.length > 0 ? (
+            {data && recentOrders.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -298,7 +308,7 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.recentOrders.map((o) => (
+                  {recentOrders.map((o) => (
                     <TableRow key={o.id}>
                       <TableCell className="font-medium">
                         {o.orderCode}

@@ -29,6 +29,8 @@ const ROLE_OPTIONS = [
   { value: "warehouse", label: "Kho hàng" },
 ];
 
+const INTERNAL_ROLES = new Set(["admin", "staff", "technician", "warehouse"]);
+
 export default function StaffPage() {
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,11 @@ export default function StaffPage() {
         role: roleFilter === "all" ? undefined : roleFilter,
         limit: 100,
       });
-      setUsers(res.data);
+      const internalUsers =
+        roleFilter === "all"
+          ? res.data.filter((user) => INTERNAL_ROLES.has(user.role))
+          : res.data;
+      setUsers(internalUsers);
     } catch {
       setError("Không thể tải danh sách nhân viên");
     } finally {
@@ -69,7 +75,7 @@ export default function StaffPage() {
     );
   }, [users, search]);
 
-  const staffCount = users.filter((u) => u.role !== "customer").length;
+  const staffCount = users.length;
 
   async function saveRole(id: number) {
     setSaving(true);
@@ -95,7 +101,7 @@ export default function StaffPage() {
             Nhân sự
           </h1>
           <p className="text-muted-foreground">
-            Quản lý nhân viên, kỹ thuật viên và kho hàng.
+            Quản lý tài khoản nội bộ: admin, nhân viên, kỹ thuật viên, kho.
           </p>
         </div>
         <div className="text-sm text-muted-foreground">
@@ -136,11 +142,7 @@ export default function StaffPage() {
           onClick={() => void fetchUsers()}
           disabled={loading}
         >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Làm mới"
-          )}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Làm mới"}
         </Button>
       </div>
 
@@ -188,12 +190,12 @@ export default function StaffPage() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      user.isActive
+                      user.isVerified
                         ? "bg-emerald-100 text-emerald-700"
-                        : "bg-red-100 text-red-700"
+                        : "bg-amber-100 text-amber-700"
                     }`}
                   >
-                    {user.isActive ? "Hoạt động" : "Vô hiệu"}
+                    {user.isVerified ? "Đã xác minh" : "Chưa xác minh"}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
