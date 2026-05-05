@@ -140,12 +140,16 @@ export default function CategoriesPage() {
   function flattenCategories(
     cats: Category[],
     depth = 0,
+    seen = new Set<number>(),
   ): (Category & { depth: number })[] {
     const result: (Category & { depth: number })[] = [];
     for (const cat of cats) {
+      if (seen.has(cat.id)) continue;
+      seen.add(cat.id);
+
       result.push({ ...cat, depth });
       if (cat.children && cat.children.length > 0) {
-        result.push(...flattenCategories(cat.children, depth + 1));
+        result.push(...flattenCategories(cat.children, depth + 1, seen));
       }
     }
     return result;

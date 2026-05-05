@@ -9,6 +9,7 @@ import {
   type WarrantyTicket,
   type WarrantyTicketStatus,
 } from "@/lib/warranty-service";
+import { staffService, type StaffUser } from "@/lib/staff-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -119,6 +120,7 @@ function WarrantyAdminPageContent() {
   const [statusFilter, setStatusFilter] = useState<
     WarrantyTicketStatus | "all"
   >(initialStatus);
+  const [technicians, setTechnicians] = useState<StaffUser[]>([]);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [page, setPage] = useState(initialPage);
@@ -126,6 +128,18 @@ function WarrantyAdminPageContent() {
   const [techByTicket, setTechByTicket] = useState<Record<number, string>>({});
   const tableSectionRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusTableRef = useRef(false);
+  const technicianOptions = technicians.filter(
+    (user) => user.role === "technician",
+  );
+
+  async function fetchTechnicians() {
+    try {
+      const res = await staffService.getAll({ role: "technician", limit: 100 });
+      setTechnicians(res.data);
+    } catch {
+      setError("Không thể tải danh sách kỹ thuật viên");
+    }
+  }
 
   function markKeepTableInView() {
     shouldFocusTableRef.current = true;
@@ -276,6 +290,15 @@ function WarrantyAdminPageContent() {
       setTickets(ticketData.data);
       setTotal(ticketData.meta.total);
       setTotalPages(Math.max(1, ticketData.meta.totalPages || 1));
+      setTechByTicket((prev) => {
+        const next = { ...prev };
+        ticketData.data.forEach((ticket) => {
+          if (!next[ticket.id] && ticket.assignedTo) {
+            next[ticket.id] = String(ticket.assignedTo);
+          }
+        });
+        return next;
+      });
     } catch {
       setError("Không thể tải dữ liệu bảo hành");
     } finally {
@@ -286,6 +309,10 @@ function WarrantyAdminPageContent() {
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    void fetchTechnicians();
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -333,7 +360,7 @@ function WarrantyAdminPageContent() {
   async function handleAssign(ticketId: number) {
     const technicianId = Number(techByTicket[ticketId] || "");
     if (!technicianId || technicianId <= 0) {
-      setError("Vui lòng nhập Technician ID hợp lệ");
+      setError("Vui lòng chọn kỹ thuật viên hợp lệ");
       return;
     }
 
@@ -524,9 +551,8 @@ function WarrantyAdminPageContent() {
                   <TableCell>{statusLabel[ticket.status]}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <input
-                        className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm"
-                        placeholder="Tech ID"
+                      <select
+                        className="h-8 min-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
                         value={techByTicket[ticket.id] || ""}
                         onChange={(event) =>
                           setTechByTicket((prev) => ({
@@ -534,12 +560,22 @@ function WarrantyAdminPageContent() {
                             [ticket.id]: event.target.value,
                           }))
                         }
-                      />
+                      >
+                        <option value="">Chọn kỹ thuật viên</option>
+                        {technicianOptions.map((tech) => (
+                          <option key={tech.id} value={String(tech.id)}>
+                            {tech.fullName} ({tech.email})
+                          </option>
+                        ))}
+                      </select>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleAssign(ticket.id)}
-                        disabled={assigningId === ticket.id}
+                        disabled={
+                          assigningId === ticket.id ||
+                          technicianOptions.length === 0
+                        }
                       >
                         Assign
                       </Button>

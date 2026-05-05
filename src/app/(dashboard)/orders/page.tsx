@@ -37,8 +37,12 @@ function formatPrice(price: number): string {
 const statusLabel: Record<OrderStatus, string> = {
   pending: "Chờ xử lý",
   confirmed: "Đã xác nhận",
+  processing: "Kho đang xử lý",
+  ready_to_ship: "Sẵn sàng giao",
   shipping: "Đang giao",
+  delivered: "Đã giao hàng",
   completed: "Hoàn tất",
+  refunded: "Đã hoàn tiền",
   cancelled: "Đã hủy",
 };
 
@@ -408,9 +412,37 @@ export default function OrdersPage() {
                 <Button
                   variant="outline"
                   disabled={updating}
+                  onClick={() => updateStatus("processing")}
+                >
+                  Processing
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={updating}
+                  onClick={() => updateStatus("ready_to_ship")}
+                >
+                  Ready To Ship
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={updating}
+                  onClick={() => updateStatus("delivered")}
+                >
+                  Delivered
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={updating}
                   onClick={() => updateStatus("completed")}
                 >
                   Completed
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={updating}
+                  onClick={() => updateStatus("refunded")}
+                >
+                  Refunded
                 </Button>
                 <Button
                   variant="destructive"

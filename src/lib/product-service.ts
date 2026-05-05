@@ -122,6 +122,24 @@ export const productService = {
     await api.put(`/admin/products/${id}`, data);
   },
 
+  async uploadImages(files: File[]): Promise<string[]> {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("files", file);
+    }
+
+    const res = await api.post("/admin/products/upload-images", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    const imageUrls =
+      (res.data?.data?.imageUrls as string[] | undefined) ||
+      (res.data?.imageUrls as string[] | undefined) ||
+      [];
+
+    return imageUrls;
+  },
+
   async delete(id: number): Promise<void> {
     await api.delete(`/admin/products/${id}`);
   },

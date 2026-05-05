@@ -14,6 +14,7 @@ import {
 import {
   productService,
   type Product,
+  type ProductImage,
   type ProductQueryParams,
   type PaginatedResult,
   type CreateProductPayload,
@@ -62,6 +63,13 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
+function getPrimaryImageUrl(images: ProductImage[] | undefined): string | null {
+  if (!images || images.length === 0) return null;
+  const primary = images.find((img) => img.isPrimary && img.url);
+  if (primary?.url) return primary.url;
+  return images.find((img) => Boolean(img.url))?.url || null;
+}
+
 const statusLabels: Record<
   string,
   {
@@ -92,6 +100,7 @@ const emptyForm: CreateProductPayload & { id?: number } = {
   status: "draft",
   isFeatured: false,
   sortOrder: 0,
+  images: [],
 };
 
 export default function ProductsPage() {
@@ -114,9 +123,33 @@ export default function ProductsPage() {
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
   const [stockFilter, setStockFilter] = useState<"all" | "out" | "low">("all");
+
+  const normalizeImages = useCallback((images: ProductImage[] | undefined) => {
+    const cleaned = (images || [])
+      .map((img) => ({
+        url: img.url?.trim() || "",
+        alt: img.alt?.trim() || "",
+        isPrimary: Boolean(img.isPrimary),
+        sortOrder: img.sortOrder ?? 0,
+      }))
+      .filter((img) => Boolean(img.url));
+
+    if (cleaned.length === 0) return [];
+
+    const primaryIndex = cleaned.findIndex((img) => img.isPrimary);
+
+    return cleaned.map((img, index) => ({
+      ...img,
+      isPrimary: primaryIndex >= 0 ? index === primaryIndex : index === 0,
+      sortOrder: index,
+    }));
+  }, []);
 
   const fetchProducts = useCallback(async (q: ProductQueryParams) => {
     setLoading(true);
@@ -131,13 +164,36 @@ export default function ProductsPage() {
   }, []);
 
   const fetchMeta = useCallback(async () => {
-    const [cats, brs] = await Promise.all([
-      categoryService.getAll(),
-      brandService.getAll(),
-    ]);
-    setCategories(cats);
-    setBrands(brs);
-  }, []);
+    try {
+      const [catsResult, brandsResult] = await Promise.allSettled([
+        categoryService.getAll(),
+        brandService.getAll(),
+      ]);
+
+      if (catsResult.status === "fulfilled") {
+        setCategories(catsResult.value);
+      }
+
+      if (brandsResult.status === "fulfilled") {
+        setBrands(brandsResult.value);
+      }
+
+      if (canManageProducts) {
+        if (
+          catsResult.status === "rejected" ||
+          brandsResult.status === "rejected"
+        ) {
+          setMetaError("Không thể tải danh mục/thương hiệu.");
+        } else {
+          setMetaError(null);
+        }
+      }
+    } catch {
+      if (canManageProducts) {
+        setMetaError("Không thể tải danh mục/thương hiệu.");
+      }
+    }
+  }, [canManageProducts]);
 
   useEffect(() => {
     fetchMeta();
@@ -153,9 +209,10 @@ export default function ProductsPage() {
 
   function openCreate() {
     if (!canManageProducts) return;
-    setForm(emptyForm);
+    setForm({ ...emptyForm, images: [] });
     setEditing(false);
     setError(null);
+    setImageError(null);
     setDialogOpen(true);
   }
 
@@ -177,10 +234,71 @@ export default function ProductsPage() {
       status: p.status,
       isFeatured: p.isFeatured,
       sortOrder: p.sortOrder,
+      images: normalizeImages(p.images),
     });
     setEditing(true);
     setError(null);
+    setImageError(null);
     setDialogOpen(true);
+  }
+
+  async function handleUploadImages(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingImages(true);
+    setImageError(null);
+
+    try {
+      const uploadedUrls = await productService.uploadImages(Array.from(files));
+
+      setForm((f) => {
+        const existing = f.images || [];
+        const merged = [...existing];
+
+        for (const url of uploadedUrls) {
+          if (!merged.some((img) => img.url === url)) {
+            merged.push({
+              url,
+              alt: "",
+              isPrimary: false,
+              sortOrder: merged.length,
+            });
+          }
+        }
+
+        return { ...f, images: normalizeImages(merged) };
+      });
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : "Upload ảnh thất bại");
+    } finally {
+      setUploadingImages(false);
+    }
+  }
+
+  function updateImageAt(index: number, patch: Partial<ProductImage>) {
+    setForm((f) => {
+      const images = [...(f.images || [])];
+      if (!images[index]) return f;
+      images[index] = { ...images[index], ...patch };
+      return { ...f, images: normalizeImages(images) };
+    });
+  }
+
+  function removeImageAt(index: number) {
+    setForm((f) => {
+      const images = [...(f.images || [])];
+      images.splice(index, 1);
+      return { ...f, images: normalizeImages(images) };
+    });
+  }
+
+  function setPrimaryImage(index: number) {
+    setForm((f) => {
+      const images = (f.images || []).map((img, i) => ({
+        ...img,
+        isPrimary: i === index,
+      }));
+      return { ...f, images: normalizeImages(images) };
+    });
   }
 
   async function handleSave() {
@@ -195,6 +313,7 @@ export default function ProductsPage() {
       if (!payload.brandId) delete payload.brandId;
       if (!payload.sellerId) delete payload.sellerId;
       if (!payload.salePrice) delete payload.salePrice;
+      payload.images = normalizeImages(payload.images);
 
       if (editing && id) {
         await productService.update(id, payload);
@@ -340,6 +459,12 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {metaError && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">
+          {metaError}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-lg border">
         <Table>
@@ -379,19 +504,37 @@ export default function ProductsPage() {
                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-xs">{p.id}</TableCell>
                     <TableCell>
-                      <div>
-                        <span className="font-medium">{p.name}</span>
-                        {p.isFeatured && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            Nổi bật
-                          </Badge>
-                        )}
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-muted/30">
+                          {getPrimaryImageUrl(p.images) ? (
+                            <img
+                              src={getPrimaryImageUrl(p.images) as string}
+                              alt={p.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                              No img
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div>
+                            <span className="font-medium">{p.name}</span>
+                            {p.isFeatured && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                Nổi bật
+                              </Badge>
+                            )}
+                          </div>
+                          {p.sku && (
+                            <span className="text-xs text-muted-foreground">
+                              SKU: {p.sku}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {p.sku && (
-                        <span className="text-xs text-muted-foreground">
-                          SKU: {p.sku}
-                        </span>
-                      )}
                     </TableCell>
                     <TableCell className="text-sm">
                       {p.category?.name || "—"}
@@ -694,6 +837,94 @@ export default function ProductsPage() {
                     }))
                   }
                 />
+              </div>
+              <div className="space-y-3 col-span-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <Label>Ảnh sản phẩm</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {(form.images || []).length} ảnh
+                  </span>
+                </div>
+
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={uploadingImages}
+                  onChange={(e) => {
+                    void handleUploadImages(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  Có thể chọn nhiều ảnh một lần (tối đa 12 ảnh, mỗi ảnh tối đa
+                  5MB).
+                </p>
+
+                {uploadingImages && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Đang upload ảnh...
+                  </div>
+                )}
+
+                {imageError && (
+                  <div className="rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
+                    {imageError}
+                  </div>
+                )}
+
+                {(form.images || []).length > 0 && (
+                  <div className="space-y-2">
+                    {(form.images || []).map((img, index) => (
+                      <div
+                        key={`${img.url}-${index}`}
+                        className="rounded border p-2 space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge
+                            variant={img.isPrimary ? "default" : "outline"}
+                          >
+                            {img.isPrimary ? "Ảnh chính" : `Ảnh ${index + 1}`}
+                          </Badge>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setPrimaryImage(index)}
+                            >
+                              Đặt ảnh chính
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => removeImageAt(index)}
+                            >
+                              Xóa
+                            </Button>
+                          </div>
+                        </div>
+                        <Input
+                          value={img.url}
+                          onChange={(e) =>
+                            updateImageAt(index, { url: e.target.value })
+                          }
+                          placeholder="URL ảnh"
+                        />
+                        <Input
+                          value={img.alt || ""}
+                          onChange={(e) =>
+                            updateImageAt(index, { alt: e.target.value })
+                          }
+                          placeholder="Alt text (tuỳ chọn)"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">

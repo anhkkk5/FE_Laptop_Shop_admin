@@ -15,7 +15,7 @@ import { staffService, type StaffUser } from "@/lib/staff-service";
 
 const ROLE_LABELS: Record<string, string> = {
   customer: "Khách hàng",
-  seller: "Nhà bán hàng",
+  seller: "Nhân viên (legacy)",
   admin: "Quản trị viên",
   staff: "Nhân viên",
   technician: "Kỹ thuật viên",
@@ -25,15 +25,21 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_OPTIONS = [
   { value: "all", label: "Tất cả" },
   { value: "customer", label: "Khách hàng" },
-  { value: "seller", label: "Nhà bán hàng" },
+  { value: "staff", label: "Nhân viên" },
+  { value: "technician", label: "Kỹ thuật viên" },
+  { value: "warehouse", label: "Kho hàng" },
+  { value: "admin", label: "Quản trị viên" },
 ];
 
 const EDIT_ROLE_OPTIONS = [
   { value: "customer", label: "Khách hàng" },
-  { value: "seller", label: "Nhà bán hàng" },
+  { value: "staff", label: "Nhân viên" },
+  { value: "technician", label: "Kỹ thuật viên" },
+  { value: "warehouse", label: "Kho hàng" },
+  { value: "admin", label: "Quản trị viên" },
 ];
 
-const EXTERNAL_ROLES = new Set(["customer", "seller"]);
+const EDITABLE_ROLES = new Set(EDIT_ROLE_OPTIONS.map((role) => role.value));
 
 type EditFormState = {
   fullName: string;
@@ -63,11 +69,7 @@ export default function UsersPage() {
         role: roleFilter === "all" ? undefined : roleFilter,
         limit: 100,
       });
-      const externalUsers =
-        roleFilter === "all"
-          ? res.data.filter((user) => EXTERNAL_ROLES.has(user.role))
-          : res.data;
-      setUsers(externalUsers);
+      setUsers(res.data);
     } catch {
       setError("Không thể tải danh sách người dùng");
     } finally {
@@ -95,7 +97,12 @@ export default function UsersPage() {
     setEditForm({
       fullName: user.fullName,
       phone: user.phone || "",
-      role: EXTERNAL_ROLES.has(user.role) ? user.role : "customer",
+      role:
+        user.role === "seller"
+          ? "staff"
+          : EDITABLE_ROLES.has(user.role)
+            ? user.role
+            : "customer",
     });
   }
 
@@ -137,7 +144,7 @@ export default function UsersPage() {
             Quản lý người dùng
           </h1>
           <p className="text-muted-foreground">
-            Quản lý tài khoản khách hàng và nhà bán hàng.
+            Quản lý tài khoản theo 5 vai trò nghiệp vụ và chuyển quyền vận hành.
           </p>
         </div>
         <div className="text-sm text-muted-foreground">

@@ -11,7 +11,7 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { authService, type AdminUser } from "@/lib/auth-service";
 
-const ALLOWED_ROLES = ["admin", "staff", "warehouse", "technician"];
+const ALLOWED_ROLES = ["admin"];
 
 interface AuthContextType {
   user: AdminUser | null;

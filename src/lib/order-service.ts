@@ -3,8 +3,12 @@ import api from "./api";
 export type OrderStatus =
   | "pending"
   | "confirmed"
+  | "processing"
+  | "ready_to_ship"
   | "shipping"
+  | "delivered"
   | "completed"
+  | "refunded"
   | "cancelled";
 
 export interface OrderItem {
