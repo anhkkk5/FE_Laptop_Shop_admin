@@ -15,7 +15,6 @@ import { staffService, type StaffUser } from "@/lib/staff-service";
 
 const ROLE_LABELS: Record<string, string> = {
   customer: "Khách hàng",
-  seller: "Nhân viên (legacy)",
   admin: "Quản trị viên",
   staff: "Nhân viên",
   technician: "Kỹ thuật viên",
@@ -97,12 +96,7 @@ export default function UsersPage() {
     setEditForm({
       fullName: user.fullName,
       phone: user.phone || "",
-      role:
-        user.role === "seller"
-          ? "staff"
-          : EDITABLE_ROLES.has(user.role)
-            ? user.role
-            : "customer",
+      role: EDITABLE_ROLES.has(user.role) ? user.role : "customer",
     });
   }
 

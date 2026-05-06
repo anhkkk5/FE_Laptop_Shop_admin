@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Bell,
   Warehouse,
+  TicketPercent,
 } from "lucide-react";
 import { type ComponentType, useMemo, useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -80,6 +81,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/orders",
     label: "Đơn hàng",
     icon: ShoppingCart,
+    roles: ["admin", "staff"],
+  },
+  {
+    href: "/coupons",
+    label: "Mã giảm giá",
+    icon: TicketPercent,
     roles: ["admin", "staff"],
   },
   {
