@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Loader2, Search, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,6 +46,14 @@ type EditFormState = {
   role: string;
 };
 
+type CreateFormState = {
+  fullName: string;
+  email: string;
+  password: string;
+  phone: string;
+  role: string;
+};
+
 export default function UsersPage() {
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,8 +62,18 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({
     fullName: "",
+    phone: "",
+    role: "customer",
+  });
+  const [createForm, setCreateForm] = useState<CreateFormState>({
+    fullName: "",
+    email: "",
+    password: "",
     phone: "",
     role: "customer",
   });
@@ -73,6 +91,60 @@ export default function UsersPage() {
       setError("Không thể tải danh sách người dùng");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await staffService.create({
+        fullName: createForm.fullName.trim(),
+        email: createForm.email.trim(),
+        password: createForm.password,
+        phone: createForm.phone.trim() || undefined,
+        role: createForm.role,
+      });
+      setUsers((prev) => [created, ...prev]);
+      setCreateForm({
+        fullName: "",
+        email: "",
+        password: "",
+        phone: "",
+        role: "customer",
+      });
+      setSuccess(
+        "Tạo tài khoản test thành công. Tài khoản đã được xác minh ngay.",
+      );
+    } catch {
+      setError("Tạo tài khoản thất bại");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDeleteUser(user: StaffUser) {
+    const confirmed = window.confirm(`Xóa tài khoản ${user.email}?`);
+    if (!confirmed) return;
+
+    setDeletingId(user.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      await staffService.remove(user.id);
+      setUsers((prev) => prev.filter((item) => item.id !== user.id));
+      if (editingId === user.id) {
+        setEditingId(null);
+      }
+      setSuccess("Đã xóa tài khoản người dùng.");
+    } catch {
+      setError(
+        "Xóa user thất bại (có thể tài khoản đang có dữ liệu ràng buộc).",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -151,6 +223,100 @@ export default function UsersPage() {
           {error}
         </div>
       )}
+
+      {success && (
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-50 p-3 text-sm text-emerald-700">
+          {success}
+        </div>
+      )}
+
+      <div className="rounded-lg border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4" />
+          <h2 className="font-semibold">Tạo tài khoản test</h2>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tài khoản tạo tại đây sẽ được dùng test nội bộ và không cần xác nhận
+          email.
+        </p>
+        <form
+          onSubmit={handleCreateUser}
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-6"
+        >
+          <Input
+            placeholder="Họ tên"
+            value={createForm.fullName}
+            onChange={(e) =>
+              setCreateForm((prev) => ({ ...prev, fullName: e.target.value }))
+            }
+            className="xl:col-span-1"
+            required
+          />
+          <Input
+            type="email"
+            placeholder="Email"
+            value={createForm.email}
+            onChange={(e) =>
+              setCreateForm((prev) => ({ ...prev, email: e.target.value }))
+            }
+            className="xl:col-span-2"
+            required
+          />
+          <Input
+            type="password"
+            placeholder="Mật khẩu"
+            value={createForm.password}
+            onChange={(e) =>
+              setCreateForm((prev) => ({ ...prev, password: e.target.value }))
+            }
+            minLength={6}
+            className="xl:col-span-1"
+            required
+          />
+          <Input
+            placeholder="Số điện thoại (tuỳ chọn)"
+            value={createForm.phone}
+            onChange={(e) =>
+              setCreateForm((prev) => ({ ...prev, phone: e.target.value }))
+            }
+            className="xl:col-span-1"
+          />
+          <Select
+            value={createForm.role}
+            onValueChange={(value) =>
+              setCreateForm((prev) => ({ ...prev, role: value }))
+            }
+          >
+            <SelectTrigger className="xl:col-span-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EDIT_ROLE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="md:col-span-2 xl:col-span-6 flex justify-end">
+            <Button
+              type="submit"
+              disabled={
+                creating ||
+                !createForm.fullName.trim() ||
+                !createForm.email.trim() ||
+                createForm.password.length < 6
+              }
+            >
+              {creating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Tạo tài khoản"
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[220px]">
@@ -290,13 +456,28 @@ export default function UsersPage() {
                       </Button>
                     </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => startEdit(user)}
-                    >
-                      Sửa
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => startEdit(user)}
+                      >
+                        Sửa
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => void handleDeleteUser(user)}
+                        disabled={deletingId === user.id}
+                      >
+                        {deletingId === user.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>

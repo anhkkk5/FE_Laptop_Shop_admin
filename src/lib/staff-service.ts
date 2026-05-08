@@ -75,6 +75,15 @@ export interface UpdateStaffDto {
   role?: string;
 }
 
+export interface CreateStaffDto {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  avatar?: string;
+  role?: string;
+}
+
 export const staffService = {
   async getAll(options?: {
     role?: string;
@@ -100,5 +109,14 @@ export const staffService = {
   async update(id: number, dto: UpdateStaffDto): Promise<StaffUser> {
     const { data } = await api.patch(`/admin/users/${id}`, dto);
     return data?.data ?? data;
+  },
+
+  async create(dto: CreateStaffDto): Promise<StaffUser> {
+    const { data } = await api.post("/admin/users", dto);
+    return data?.data ?? data;
+  },
+
+  async remove(id: number): Promise<void> {
+    await api.delete(`/admin/users/${id}`);
   },
 };
