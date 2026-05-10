@@ -10,6 +10,7 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from "lucide-react";
 import {
   productService,
@@ -19,6 +20,7 @@ import {
   type PaginatedResult,
   type CreateProductPayload,
 } from "@/lib/product-service";
+import { VariantManager } from "./variant-manager";
 import { useAuth } from "@/context/auth-context";
 import { categoryService, type Category } from "@/lib/category-service";
 import { brandService, type Brand } from "@/lib/brand-service";
@@ -128,6 +130,7 @@ export default function ProductsPage() {
   const [imageError, setImageError] = useState<string | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [stockFilter, setStockFilter] = useState<"all" | "out" | "low">("all");
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
 
   const normalizeImages = useCallback((images: ProductImage[] | undefined) => {
     const cleaned = (images || [])
@@ -581,6 +584,14 @@ export default function ProductsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            title="Quản lý phiên bản"
+                            onClick={() => setVariantProduct(p)}
+                          >
+                            <Layers className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openEdit(p)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -963,6 +974,15 @@ export default function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {variantProduct && (
+        <VariantManager
+          productId={variantProduct.id}
+          productName={variantProduct.name}
+          open={true}
+          onClose={() => setVariantProduct(null)}
+        />
+      )}
     </div>
   );
 }

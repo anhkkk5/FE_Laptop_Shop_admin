@@ -20,6 +20,8 @@ import {
   Bell,
   Warehouse,
   TicketPercent,
+  ImageIcon,
+  RotateCcw,
 } from "lucide-react";
 import { type ComponentType, useMemo, useState } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -54,6 +56,12 @@ const sidebarItems: SidebarItem[] = [
     roles: ["admin"],
   },
   {
+    href: "/banners",
+    label: "Banner",
+    icon: ImageIcon,
+    roles: ["admin"],
+  },
+  {
     href: "/products",
     label: "Sản phẩm",
     icon: Laptop,
@@ -82,6 +90,12 @@ const sidebarItems: SidebarItem[] = [
     label: "Đơn hàng",
     icon: ShoppingCart,
     roles: ["admin", "staff"],
+  },
+  {
+    href: "/returns",
+    label: "Đổi/Trả",
+    icon: RotateCcw,
+    roles: ["admin", "staff", "warehouse"],
   },
   {
     href: "/coupons",
@@ -162,10 +176,10 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-all duration-300
-          lg:relative lg:z-auto
+          fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card transition-[width,transform] duration-300
+          lg:relative lg:z-auto lg:translate-x-0
           ${collapsed ? "w-[68px]" : "w-64"}
-          ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         {/* Logo */}

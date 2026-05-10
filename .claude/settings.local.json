@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem \"d:\\\\Khoafronend\\\\FeShopLaptop\\\\tailwind.config*\" -Name)",
+      "Bash(Get-ChildItem \"d:\\\\Khoafronend\\\\fe-admin-laptop\\\\tailwind.config*\" -Name)"
+    ]
+  }
+}

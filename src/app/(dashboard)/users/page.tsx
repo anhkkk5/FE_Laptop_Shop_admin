@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Loader2, Search, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,7 +78,7 @@ export default function UsersPage() {
     role: "customer",
   });
 
-  async function fetchUsers() {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -92,7 +92,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [roleFilter]);
 
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -149,8 +149,8 @@ export default function UsersPage() {
   }
 
   useEffect(() => {
-    void fetchUsers();
-  }, [roleFilter]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

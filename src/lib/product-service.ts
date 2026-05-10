@@ -70,6 +70,30 @@ export interface InventorySummary {
   generatedAt: string;
 }
 
+export interface ProductVariant {
+  id: number;
+  productId: number;
+  name: string;
+  sku: string | null;
+  price: number | null;
+  salePrice: number | null;
+  stockQuantity: number;
+  attributes: Record<string, string>;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface CreateVariantPayload {
+  name: string;
+  sku?: string;
+  price?: number;
+  salePrice?: number;
+  stockQuantity: number;
+  attributes: Record<string, string>;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
 export interface CreateProductPayload {
   name: string;
   slug: string;
@@ -142,5 +166,34 @@ export const productService = {
 
   async delete(id: number): Promise<void> {
     await api.delete(`/admin/products/${id}`);
+  },
+
+  async getVariants(productId: number): Promise<ProductVariant[]> {
+    const res = await api.get(`/admin/products/${productId}/variants`);
+    return res.data.data;
+  },
+
+  async createVariant(
+    productId: number,
+    data: CreateVariantPayload,
+  ): Promise<ProductVariant> {
+    const res = await api.post(`/admin/products/${productId}/variants`, data);
+    return res.data.data;
+  },
+
+  async updateVariant(
+    productId: number,
+    variantId: number,
+    data: CreateVariantPayload,
+  ): Promise<ProductVariant> {
+    const res = await api.put(
+      `/admin/products/${productId}/variants/${variantId}`,
+      data,
+    );
+    return res.data.data;
+  },
+
+  async deleteVariant(productId: number, variantId: number): Promise<void> {
+    await api.delete(`/admin/products/${productId}/variants/${variantId}`);
   },
 };
